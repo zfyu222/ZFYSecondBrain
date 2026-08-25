@@ -16,6 +16,7 @@
 
 - [笔记双视图需求：思维导图与 Markdown](./dual-view-notes.md)
 - [记忆整理](./memory-organization.md)
+- [数据可迁移原则](./data-portability.md)
 
 ## 待对齐
 
