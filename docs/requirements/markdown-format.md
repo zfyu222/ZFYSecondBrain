@@ -84,3 +84,29 @@ created: 2026-08-25
 - 知识库可以直接使用 Obsidian 打开并读取主要语法。
 - 系统提供标准 Markdown 导出，将 Wiki Link、媒体嵌入和其他扩展转换为标准链接或可理解的文本。
 - 即使目标工具不支持某项增强渲染，原始路径、标题和正文仍然保持可读。
+
+## 8. 开源实现方向
+
+Markdown 解析层采用可组合的开源方案，不自行从零编写完整解析器：
+
+- [Unified / Remark](https://github.com/remarkjs/remark)：作为 Markdown 解析、转换和序列化的核心，通过 Markdown AST 为页面渲染、AI 分析、差异处理和思维导图转换提供统一结构。
+- [remark-gfm](https://github.com/remarkjs/remark-gfm)：提供 GFM 表格、任务列表、删除线和自动链接等能力。
+- [remark-frontmatter](https://github.com/remarkjs/remark-frontmatter)：识别 YAML Front Matter。
+- [remark-math](https://github.com/remarkjs/remark-math)：识别 LaTeX 数学公式。
+- [remark-wiki-link](https://github.com/flowershow/remark-wiki-link)：处理 Wiki Link 以及图片、视频、音频和 PDF 嵌入。
+- [Quartz Obsidian Flavored Markdown](https://github.com/quartz-community/obsidian-flavored-markdown)：作为 Callout、高亮、标签、媒体和其他 OFM 行为的开源实现参考；关闭或不采用 block reference 等不符合本项目原则的能力。
+- [lezer-markdown-obsidian](https://github.com/erykwalder/lezer-markdown-obsidian)：可用于编辑器语法树和高亮，但不作为数据转换的唯一解析依据。
+
+统一处理流程为：
+
+```text
+ZFY Markdown
+      ↓
+Markdown AST
+  ├─ 页面渲染
+  ├─ AI 内容分析
+  ├─ 语义差异处理
+  └─ 思维导图转换
+```
+
+该决定只限定 Markdown 解析层，不代表已经确定客户端、服务端或整体项目技术栈。实际开发前需要核对依赖许可证、维护状态、移动端兼容性和安全边界；Markdown 转 HTML 时必须执行内容清理，避免不安全 HTML 或插件造成脚本注入。
