@@ -19,6 +19,7 @@
 - [数据可迁移原则](./data-portability.md)
 - [ZFY Markdown 格式](./markdown-format.md)
 - [思维导图与语义关系存储格式](./mindmap-storage.md)
+- [知识组织方式](./knowledge-organization.md)
 
 ## 待对齐
 
