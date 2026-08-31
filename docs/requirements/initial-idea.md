@@ -21,6 +21,7 @@
 - [思维导图与语义关系存储格式](./mindmap-storage.md)
 - [知识组织方式](./knowledge-organization.md)
 - [多级摘要](./multi-level-summaries.md)
+- [文档移动与路径更新](./path-updates.md)
 
 ## 待对齐
 
