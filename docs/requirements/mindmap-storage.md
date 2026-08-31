@@ -11,13 +11,13 @@
 
 ## 2. 文件组织
 
-同一篇双视图笔记使用相同基础名称配对：
+用户创作的同一篇双视图笔记在 `raw` 中使用相同基础名称配对：
 
 ```text
-睡眠质量.md
-睡眠质量.opml
-睡眠质量.relations.yaml
-睡眠质量.assets/
+raw/Areas/健康/睡眠质量.md
+raw/Areas/健康/睡眠质量.opml
+raw/Areas/健康/睡眠质量.relations.yaml
+raw/Areas/健康/睡眠质量.assets/
 ```
 
 - `.md` 文件在笔记启用 Markdown 视图时存在。
@@ -25,6 +25,7 @@
 - `.relations.yaml` 仅在存在需要单独保存的语义关系时创建。
 - `.assets/` 保存图片、视频、音频、PDF 等原始附件；没有附件时不创建。
 - 只有一个视图的笔记不创建不需要的空文件。
+- `.relations.yaml` 保存用户在笔记内明确创建或确认的关系；AI 从多篇文档中提取的知识图谱关系保存在 `derived/relations`，不与用户原始关系混写。
 
 ## 3. OPML 导图树
 

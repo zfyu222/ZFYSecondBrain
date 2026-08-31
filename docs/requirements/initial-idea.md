@@ -22,6 +22,7 @@
 - [知识组织方式](./knowledge-organization.md)
 - [多级摘要](./multi-level-summaries.md)
 - [文档移动与路径更新](./path-updates.md)
+- [分层知识图谱与文档地图](./hierarchical-knowledge-graph.md)
 
 ## 待对齐
 

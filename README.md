@@ -11,6 +11,10 @@
 ## 资料
 
 - [初始需求草图](docs/requirements/initial-idea.md)
+- [知识组织方式](docs/requirements/knowledge-organization.md)
+- [笔记双视图](docs/requirements/dual-view-notes.md)
+- [数据可迁移原则](docs/requirements/data-portability.md)
+- [分层知识图谱与文档地图](docs/requirements/hierarchical-knowledge-graph.md)
 
 ## 原则
 
