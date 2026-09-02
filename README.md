@@ -19,6 +19,7 @@
 - [多端同步与离线使用](docs/requirements/multi-device-sync.md)
 - [笔记模板](docs/requirements/note-templates.md)
 - [安卓今日 Inbox 桌面控件](docs/requirements/android-inbox-widget.md)
+- [撤销、历史记录与备份恢复](docs/requirements/history-and-recovery.md)
 - [进阶想法池：候选方向，不承诺实现](docs/advanced-ideas.md)
 
 ## 原则
