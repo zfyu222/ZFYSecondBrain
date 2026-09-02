@@ -6,6 +6,8 @@
 
 项目仓库已完成初始化，尚未选择技术栈，也未开始业务实现。
 
+目标客户端为 Web、安卓和 Windows，优先支持 Web；服务端计划自托管于用户的群晖 NAS。
+
 下一阶段将先对齐产品目标、核心使用场景、功能边界与优先级，再决定架构和技术方案。
 
 ## 资料
@@ -20,6 +22,7 @@
 - [笔记模板](docs/requirements/note-templates.md)
 - [安卓今日 Inbox 桌面控件](docs/requirements/android-inbox-widget.md)
 - [撤销、历史记录与备份恢复](docs/requirements/history-and-recovery.md)
+- [客户端平台与 NAS 部署](docs/requirements/platforms-and-deployment.md)
 - [进阶想法池：候选方向，不承诺实现](docs/advanced-ideas.md)
 
 ## 原则
