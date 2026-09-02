@@ -15,10 +15,12 @@
 - [笔记双视图](docs/requirements/dual-view-notes.md)
 - [数据可迁移原则](docs/requirements/data-portability.md)
 - [分层知识图谱与文档地图](docs/requirements/hierarchical-knowledge-graph.md)
+- [AI 知识管理员](docs/requirements/ai-knowledge-manager.md)
 
 ## 原则
 
 - 需求先于实现
 - 技术选型服务于产品目标
 - 原始数据使用开放、可读、可迁移的形式保存
+- 知识库独立于可替换的 AI 知识管理员运行
 - 重要决策通过文档记录

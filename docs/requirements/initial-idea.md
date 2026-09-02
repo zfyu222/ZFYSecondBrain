@@ -23,6 +23,7 @@
 - [多级摘要](./multi-level-summaries.md)
 - [文档移动与路径更新](./path-updates.md)
 - [分层知识图谱与文档地图](./hierarchical-knowledge-graph.md)
+- [AI 知识管理员](./ai-knowledge-manager.md)
 
 ## 待对齐
 
@@ -31,5 +32,4 @@
 - MVP 功能边界与优先级
 - 数据所有权、隐私与同步方式
 - 支持的平台与离线需求
-- AI 功能的角色与边界
 - 技术栈与系统架构
