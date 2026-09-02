@@ -27,7 +27,7 @@
 - [多端同步、离线使用与冲突边界](./multi-device-sync.md)
 - [笔记模板](./note-templates.md)：仅提供创建起点，不持续约束文档字段和排版。
 - [安卓今日 Inbox 桌面控件](./android-inbox-widget.md)：今日列表、快速新建与简单编辑。
-- [撤销、历史记录与备份恢复](./history-and-recovery.md)：粗粒度版本与回收站，整库备份由外部软件负责。
+- [撤销、历史记录与备份恢复](./history-and-recovery.md)：粗粒度版本与回收站；外部备份分完整、标准（`raw` + `derived`）和最小化（仅 `raw`）三档。
 
 ## 已确认延后的进阶功能
 
