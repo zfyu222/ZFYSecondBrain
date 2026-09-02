@@ -19,8 +19,8 @@
 
 - 文档链接使用相对于知识库根目录的可读文件路径。
 - 节点或段落链接使用文件路径加标题锚点。
-- ZFY Markdown 原文使用兼容 Obsidian Flavored Markdown 的 Wiki Link，例如 `[[健康/睡眠质量研究]]`。
-- 链接到具体内容时使用类似 `[[健康/睡眠质量研究#睡眠与食欲]]` 的形式。
+- ZFY Markdown 原文使用兼容 Obsidian Flavored Markdown 的 Wiki Link，例如 `[[raw/Areas/健康/睡眠质量研究]]`。
+- 链接到具体内容时使用类似 `[[raw/Areas/健康/睡眠质量研究#睡眠与食欲]]` 的形式。
 - 不使用 `^block-id`、`obsidian://` 或必须依赖插件才能解释的链接。
 - 系统支持把 Wiki Link 导出为标准 Markdown 相对链接，例如 `[睡眠质量研究](../健康/睡眠质量研究.md)`。
 - 文件、目录或标题在应用内改名和移动时，系统负责重写受影响的链接。

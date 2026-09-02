@@ -8,10 +8,11 @@
 
 目标客户端为 Web、安卓和 Windows，优先支持 Web；服务端计划自托管于用户的群晖 NAS。
 
-下一阶段将先对齐产品目标、核心使用场景、功能边界与优先级，再决定架构和技术方案。
+主要功能议题已完成初步对齐，并整理为需求总览。下一步核对总览中的产品缺口、确定 Web 首版使用流程与范围，再决定架构和技术方案；尚未开始业务实现。
 
 ## 资料
 
+- [需求总览与查漏补缺（从这里开始）](docs/requirements/overview.md)
 - [初始需求草图](docs/requirements/initial-idea.md)
 - [知识组织方式](docs/requirements/knowledge-organization.md)
 - [笔记双视图](docs/requirements/dual-view-notes.md)
