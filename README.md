@@ -1,18 +1,23 @@
 # ZFY Second Brain
 
-一个处于需求探索阶段的个人第二大脑/笔记软件项目。
+一个处于技术设计阶段的个人第二大脑/笔记软件项目。
 
 ## 当前状态
 
-项目仓库已完成初始化，尚未选择技术栈，也未开始业务实现。
+项目仓库已完成初始化，首版范围和技术设计基线已整理；尚未安装业务依赖，也未开始业务实现。
 
 目标客户端为 Web、安卓和 Windows，优先支持 Web；服务端计划自托管于用户的群晖 NAS。
 
-主要功能议题已完成初步对齐，并整理为需求总览。下一步核对总览中的产品缺口、确定 Web 首版使用流程与范围，再决定架构和技术方案；尚未开始业务实现。
+首版限定单用户、单知识库，包含 Markdown/思维导图编辑、必要离线与同步、独立 AI 管理员及每日记忆整理。完整分层图谱、原生客户端和安卓控件后续实施，不混入可选想法池。
+
+技术基线：React + TypeScript + Vite 共享前端，Node.js/Fastify 知识库服务，原格式文件 + 可重建 SQLite 索引；原生端 Tauri 2 和管理员 nanobot 适配器需验证。下一步完成格式/API 契约与关键风险原型，不能把选型方案当作已实现或已验证。
 
 ## 资料
 
 - [需求总览与查漏补缺（从这里开始）](docs/requirements/overview.md)
+- [Web 首版范围与离线边界](docs/requirements/web-first-release.md)
+- [整体架构与技术选型方案](docs/architecture/technical-design.md)
+- [技术验证与开发里程碑](docs/architecture/validation-and-milestones.md)
 - [初始需求草图](docs/requirements/initial-idea.md)
 - [知识组织方式](docs/requirements/knowledge-organization.md)
 - [笔记双视图](docs/requirements/dual-view-notes.md)

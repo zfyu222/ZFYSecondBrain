@@ -144,6 +144,8 @@ raw + derived
 - Agent 的内部记忆不是用户知识的唯一存储。
 - 权限、diff、版本历史和撤销由知识库保证。
 
+架构阶段的验证方向见[整体架构](../architecture/technical-design.md)：nanobot 通过独立适配器调用受控知识库接口，不能直接写原始目录。Web 首版先实现全文/关键词和原文读取组成的基础 RAG，GraphRAG 随完整分层图谱后续推进，具体范围见 [Web 首版](./web-first-release.md)。
+
 ## 12. 验收原则
 
 - 关闭 AI 知识管理员后，用户仍能正常编辑、组织、搜索和迁移笔记。
