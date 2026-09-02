@@ -25,6 +25,7 @@
 - [分层知识图谱与文档地图](./hierarchical-knowledge-graph.md)
 - [AI 知识管理员](./ai-knowledge-manager.md)
 - [多端同步、离线使用与冲突边界](./multi-device-sync.md)
+- [笔记模板](./note-templates.md)：仅提供创建起点，不持续约束文档字段和排版。
 
 ## 已确认延后的进阶功能
 
