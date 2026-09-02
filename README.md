@@ -16,6 +16,7 @@
 - [数据可迁移原则](docs/requirements/data-portability.md)
 - [分层知识图谱与文档地图](docs/requirements/hierarchical-knowledge-graph.md)
 - [AI 知识管理员](docs/requirements/ai-knowledge-manager.md)
+- [多端同步与离线使用](docs/requirements/multi-device-sync.md)
 
 ## 原则
 
