@@ -4,6 +4,8 @@ import {
   LocalVault,
   moveDocument,
   readEmergencyExport,
+  recentDocuments,
+  rememberRecent,
   restoreEmergencyExport,
   resolveConflicts,
   synchronize,
@@ -39,6 +41,25 @@ describe("local persistence and sync queue", () => {
     db.close();
     await db.open();
     expect((await db.read()).files[p]).toBe("offline");
+  });
+  it("records readable recent document paths in newest-first order", async () => {
+    const db = await fixture();
+    const first = await rememberRecent(
+      db,
+      (await db.read()).version,
+      "raw/Inbox/a",
+      "2026-09-03T01:00:00.000Z",
+    );
+    const second = await rememberRecent(
+      db,
+      first.version,
+      "raw/Areas/b",
+      "2026-09-03T02:00:00.000Z",
+    );
+    expect(recentDocuments(second)).toEqual(["raw/Areas/b", "raw/Inbox/a"]);
+    await expect(
+      rememberRecent(db, second.version, "outside/vault", "not-a-date"),
+    ).rejects.toThrow();
   });
   it("restores an emergency export as local content without reviving transport work", async () => {
     const db = await fixture(),
@@ -195,6 +216,11 @@ describe("local persistence and sync queue", () => {
   });
   it("persists and resumes a move after an uncertain response", async () => {
     const db = await fixture();
+    const initial = await db.read();
+    await db.update(initial.version, (row) => ({
+      ...row,
+      recent: { "raw/Inbox/a": "2026-09-03T01:00:00.000Z" },
+    }));
     let moveBody = "";
     let moved = false;
     const mock = vi.fn(async (url, init?: RequestInit): Promise<Response> => {
@@ -225,6 +251,7 @@ describe("local persistence and sync queue", () => {
     expect(moved).toBe(true);
     expect(after.pendingMove).toBeNull();
     expect(after.files[p]).toBeUndefined();
+    expect(after.recent).toEqual({ "raw/Areas/a": "2026-09-03T01:00:00.000Z" });
   });
   async function conflicting() {
     const db = await fixture(),

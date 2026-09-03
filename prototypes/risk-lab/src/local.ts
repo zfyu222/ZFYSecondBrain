@@ -7,6 +7,7 @@ import {
   snapshotPayloadSchema,
   filesSchema,
   attachmentsSchema,
+  pathSchema,
 } from "./core/contracts";
 import {
   encodeAttachment,
@@ -40,6 +41,8 @@ export type LocalState = {
   base: Snapshot | null;
   pending: Change | null;
   pendingMove?: MoveRequest | null;
+  /** Readable note stems, used only as local UI state and never as note identity. */
+  recent?: Record<string, string>;
   conflict: {
     formatVersion?: 2;
     baseFiles?: Record<string, string>;
@@ -196,6 +199,42 @@ export function hasUnsyncedChanges(row: LocalState) {
       (p) => !sameAttachment(row.attachments?.[p], row.base!.attachments?.[p]),
     )
   );
+}
+
+export function recentDocuments(row: LocalState) {
+  return Object.entries(row.recent ?? {})
+    .filter(([, at]) => !Number.isNaN(Date.parse(at)))
+    .sort(([, a], [, b]) => b.localeCompare(a))
+    .map(([path]) => path);
+}
+
+export async function rememberRecent(
+  db: LocalVault,
+  expected: number,
+  path: string,
+  at = new Date().toISOString(),
+) {
+  pathSchema.parse(path + ".md");
+  if (Number.isNaN(Date.parse(at))) throw new Error("最近文档时间无效");
+  return db.update(expected, (row) => ({
+    ...row,
+    recent: { ...row.recent, [path]: at },
+  }));
+}
+
+function relocateRecent(
+  recent: Record<string, string> | undefined,
+  from: string,
+  to: string,
+) {
+  const source = from.slice(0, -3),
+    destination = to.slice(0, -3),
+    next = { ...recent };
+  if (Object.hasOwn(next, source)) {
+    next[destination] = next[source];
+    delete next[source];
+  }
+  return next;
 }
 function checkedSnapshot(input: unknown): Snapshot {
   if (!input || typeof input !== "object") throw new Error("无效服务端快照");
@@ -377,6 +416,9 @@ async function resumeMove(db: LocalVault, row: LocalState) {
     attachments: moved.attachments ?? {},
     base: moved,
     pendingMove: null,
+    recent: r.pendingMove
+      ? relocateRecent(r.recent, r.pendingMove.from, r.pendingMove.to)
+      : r.recent,
   }));
 }
 export async function moveDocument(db: LocalVault, from: string, to: string) {

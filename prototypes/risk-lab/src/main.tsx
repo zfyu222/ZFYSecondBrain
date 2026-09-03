@@ -18,6 +18,8 @@ import {
   hasUnsyncedChanges,
   type LocalState,
   addAttachment,
+  recentDocuments,
+  rememberRecent,
   restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
@@ -61,8 +63,10 @@ function App() {
     null,
   );
   function openLinkedNote(path: string, heading?: string) {
-    setActive(path.replace(/\.(md|opml)$/, ""));
-    setView(path.endsWith(".opml") ? "map" : "markdown");
+    openNote(
+      path.replace(/\.(md|opml)$/, ""),
+      path.endsWith(".opml") ? "map" : "markdown",
+    );
     setJump(heading === undefined ? null : { path, heading });
   }
   useEffect(() => {
@@ -94,6 +98,7 @@ function App() {
         JSON.stringify(filesRef.current, null, 2),
       );
     accept(await db.read());
+    rememberOpened(active);
     saveFailure.current = false;
     setError("");
     setMessage("已载入本机数据");
@@ -291,6 +296,20 @@ function App() {
             }),
           },
     );
+    rememberOpened(stem);
+  }
+  function rememberOpened(path: string) {
+    writeQueue.current = writeQueue.current
+      .then(async () => {
+        if (!rowRef.current) return;
+        accept(await rememberRecent(db, rowRef.current.version, path));
+      })
+      .catch((error) => setError(String(error)));
+  }
+  function openNote(path: string, nextView: "markdown" | "map") {
+    setActive(path);
+    setView(nextView);
+    rememberOpened(path);
   }
   function toggleFavorite() {
     const path = active + ".md";
@@ -323,6 +342,9 @@ function App() {
     }
   });
   const activeFavorite = hasMd && favoriteNotes.includes(active);
+  const recentNotes = row
+    ? recentDocuments(row).filter((path) => notes.includes(path))
+    : [];
   const editingLocked = busy || !!row?.conflict || !!row?.pendingMove;
   useEffect(() => {
     setChoices({});
@@ -369,8 +391,10 @@ function App() {
                 key={n}
                 disabled={busy}
                 onClick={() => {
-                  setActive(n);
-                  setView(files[n + ".md"] !== undefined ? "markdown" : "map");
+                  openNote(
+                    n,
+                    files[n + ".md"] !== undefined ? "markdown" : "map",
+                  );
                 }}
               >
                 <span>{n.split("/").pop()}</span>
@@ -378,6 +402,31 @@ function App() {
               </button>
             ))}
         </nav>
+        {recentNotes.length > 0 && (
+          <>
+            <div className="section-label">
+              最近文档 <span>{recentNotes.length}</span>
+            </div>
+            <nav>
+              {recentNotes.map((n) => (
+                <button
+                  className={n === active ? "note active" : "note"}
+                  key={n}
+                  disabled={busy}
+                  onClick={() =>
+                    openNote(
+                      n,
+                      files[n + ".md"] !== undefined ? "markdown" : "map",
+                    )
+                  }
+                >
+                  <span>{n.split("/").pop()}</span>
+                  <small>{n.split("/").slice(1, -1).join(" / ")}</small>
+                </button>
+              ))}
+            </nav>
+          </>
+        )}
         {favoriteNotes.length > 0 && (
           <>
             <div className="section-label">
@@ -390,8 +439,7 @@ function App() {
                   key={n}
                   disabled={busy}
                   onClick={() => {
-                    setActive(n);
-                    setView("markdown");
+                    openNote(n, "markdown");
                   }}
                 >
                   <span>★ {n.split("/").pop()}</span>
