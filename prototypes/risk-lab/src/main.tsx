@@ -254,6 +254,9 @@ function App() {
     setBusy(true);
     setError("");
     try {
+      // The validated payload is smaller; bound the raw upload before decoding it.
+      if (file.size > 12_000_000)
+        throw new Error("应急草稿超过 12 MB 原型导入限制");
       await writeQueue.current;
       if (saveFailure.current) throw new Error("请先处理本机保存错误");
       const exported = JSON.parse(await file.text()) as unknown;
