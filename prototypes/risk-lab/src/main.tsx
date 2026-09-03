@@ -23,7 +23,12 @@ import {
   restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
-import { isFavorite, noteTags, setFavorite } from "./core/note-metadata";
+import {
+  isFavorite,
+  noteTags,
+  setFavorite,
+  setNoteTags,
+} from "./core/note-metadata";
 import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
@@ -58,6 +63,7 @@ function App() {
   const [busy, setBusy] = useState(false),
     [offline, setOffline] = useState(false),
     [query, setQuery] = useState("");
+  const [tagDraft, setTagDraft] = useState("");
   const [destination, setDestination] = useState("raw/Areas/开始使用.md");
   const [jump, setJump] = useState<{ path: string; heading: string } | null>(
     null,
@@ -324,6 +330,24 @@ function App() {
       setError(String(error));
     }
   }
+  function changeTags(nextTags: string[]) {
+    const path = active + ".md";
+    try {
+      update({ [path]: setNoteTags(filesRef.current[path], nextTags) });
+    } catch (error) {
+      setError(String(error));
+    }
+  }
+  function addTag() {
+    const tag = tagDraft.trim().replace(/^#/, "");
+    if (!tag) return;
+    try {
+      changeTags([...noteTags(filesRef.current[active + ".md"]), tag]);
+      setTagDraft("");
+    } catch (error) {
+      setError(String(error));
+    }
+  }
   const notes = [
     ...new Set(
       Object.keys(files)
@@ -342,6 +366,14 @@ function App() {
     }
   });
   const activeFavorite = hasMd && favoriteNotes.includes(active);
+  let activeTags: string[] = [];
+  if (hasMd) {
+    try {
+      activeTags = noteTags(files[active + ".md"]);
+    } catch {
+      // Keep the editor usable; save actions show the precise metadata error.
+    }
+  }
   const recentNotes = row
     ? recentDocuments(row).filter((path) => notes.includes(path))
     : [];
@@ -474,6 +506,21 @@ function App() {
               {active.split("/").slice(0, -1).join(" / ")}
             </div>
             <h1>{title}</h1>
+            {hasMd && activeTags.length > 0 && (
+              <div className="note-tags" aria-label="当前标签">
+                {activeTags.map((tag) => (
+                  <button
+                    key={tag}
+                    disabled={editingLocked}
+                    onClick={() =>
+                      changeTags(activeTags.filter((item) => item !== tag))
+                    }
+                  >
+                    #{tag} ×
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="status-actions">
             <label className="offline-toggle">
@@ -487,6 +534,29 @@ function App() {
             <button disabled={editingLocked || !hasMd} onClick={toggleFavorite}>
               {activeFavorite ? "★ 已喜爱" : "☆ 喜爱"}
             </button>
+            {hasMd && (
+              <div className="tag-entry">
+                <input
+                  aria-label="添加标签"
+                  placeholder="添加标签"
+                  value={tagDraft}
+                  disabled={editingLocked}
+                  onChange={(event) => setTagDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addTag();
+                    }
+                  }}
+                />
+                <button
+                  disabled={editingLocked || !tagDraft.trim()}
+                  onClick={addTag}
+                >
+                  标签
+                </button>
+              </div>
+            )}
             <button
               className="primary"
               disabled={busy || offline || !row || !!row.conflict}

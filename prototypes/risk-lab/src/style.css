@@ -195,6 +195,31 @@ h1 {
   align-items: center;
   gap: 15px;
 }
+.note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -8px;
+  margin-bottom: 8px;
+}
+.note-tags button {
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #486b51;
+  background: #edf3e9;
+}
+.tag-entry {
+  display: flex;
+  gap: 4px;
+}
+.tag-entry input {
+  width: 8rem;
+  padding: 7px 8px;
+}
+.tag-entry button {
+  padding: 7px 9px;
+}
 .primary {
   background: var(--green);
   border-color: var(--green);

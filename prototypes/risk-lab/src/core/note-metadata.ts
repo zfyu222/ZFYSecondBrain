@@ -51,6 +51,38 @@ export function noteTags(source: string) {
   return normalized;
 }
 
+function formatTags(tags: string[]) {
+  return `[${tags.map((tag) => JSON.stringify(tag)).join(", ")}]`;
+}
+
+/** Write a conservative inline OFM list; block-style fields are left untouched. */
+export function setNoteTags(source: string, tags: string[]) {
+  const normalized = tags.map(validTag);
+  if (
+    new Set(normalized.map((tag) => tag.toLocaleLowerCase("en-US"))).size !==
+    normalized.length
+  )
+    throw new Error("tags 不能包含重复标签");
+  const front = readFrontMatter(source);
+  const line = `tags: ${formatTags(normalized)}`;
+  if (!front) {
+    const bom = source.startsWith("\uFEFF") ? "\uFEFF" : "";
+    return `${bom}---\ntags: ${formatTags(normalized)}\n---\n${bom ? source.slice(1) : source}`;
+  }
+  const [whole, opening, body, closing] = front.match;
+  if (/^tags:\s*(?:#.*)?\r?\n[ \t]+-\s/m.test(body))
+    throw new Error("块状 tags 请在 Markdown 中手工整理，元数据未修改");
+  const tagLine = /^(tags:\s*)[^\r\n#]*?(\s*(?:#.*)?)(\r?\n|$)/m;
+  const updatedBody = tagLine.test(body)
+    ? body.replace(
+        tagLine,
+        (_line, _prefix: string, suffix: string, lineEnd: string) =>
+          `${line}${suffix}${lineEnd}`,
+      )
+    : `${line}${opening.includes("\r\n") ? "\r\n" : "\n"}` + body;
+  return source.replace(whole, opening + updatedBody + closing);
+}
+
 /** Change only the top-level portable `favorite` field, preserving source line endings. */
 export function setFavorite(source: string, favorite: boolean) {
   const front = readFrontMatter(source);
