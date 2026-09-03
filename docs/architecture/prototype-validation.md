@@ -12,6 +12,7 @@
 - 阅读视图拆包后入口 JS 约 645 KB（gzip 204 KB），阅读视图约 417 KB，Markdown 编辑器约 620 KB、导图编辑器约 188 KB；此前单入口约 1.58 MB。完整离线清单 67 项，包含公式字体。初始依赖图缩小不等于真实加载时延/移动端性能验收，完整离线缓存仍下载全部分包与字体。依赖注释仍有两项无效 PURE 注解警告。
 - 首轮 GitHub Actions：[运行 33729928112](https://github.com/zfyu222/ZFYSecondBrain/actions/runs/33729928112)，提交 `35b5369`，Ubuntu/Windows 标准运行器均完成锁定安装、当时的 181 项测试、构建和离线清单检查。后续新增测试不自动继承该结论；Linux CI 也不等于群晖或真实多设备验收。
 - 升级保护回归：[运行 33730872052](https://github.com/zfyu222/ZFYSecondBrain/actions/runs/33730872052)，提交 `0ae7cd6`，Ubuntu/Windows 均通过全部 190 项测试、类型检查、生产构建和不可变入口/编辑器分包检查。本记录后的仅文档提交不改变已测代码。
+- 富文本阅读回归：[运行 33732472332](https://github.com/zfyu222/ZFYSecondBrain/actions/runs/33732472332)，提交 `404786a`，Ubuntu/Windows 均通过全部 222 项测试、构建和 67 项离线资源检查（包含 CSS 引用的公式字体）。新增场景是静态渲染与自动化检查，不代替浏览器折叠/公式布局实测。
 
 ## 2. 自动化结果
 
