@@ -124,6 +124,25 @@ describe("local persistence and sync queue", () => {
     );
     expect(await db.trash.count()).toBe(0);
   });
+  it("keeps the trash entry when restoring would overwrite a newer document", async () => {
+    const db = await fixture();
+    const trashed = await moveToTrash(
+      db,
+      (await db.read()).version,
+      "raw/Inbox/a",
+      "2026-09-04T02:00:00.000Z",
+    );
+    const entry = (await db.trash.toArray())[0];
+    const newer = await db.update(trashed.version, (state) => ({
+      ...state,
+      files: { ...state.files, [p]: "newer" },
+    }));
+    await expect(restoreTrashEntry(db, newer.version, entry.id)).rejects.toThrow(
+      "拒绝覆盖",
+    );
+    expect((await db.read()).files[p]).toBe("newer");
+    expect(await db.trash.count()).toBe(1);
+  });
   it("records readable recent document paths in newest-first order", async () => {
     const db = await fixture();
     const first = await rememberRecent(

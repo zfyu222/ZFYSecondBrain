@@ -169,10 +169,15 @@ export async function moveToTrash(
   stem: string,
   at = new Date().toISOString(),
 ) {
+  pathSchema.parse(stem + ".md");
+  if (!stem.startsWith("raw/"))
+    throw new Error("只能将原始文档移入回收站");
   return db.transaction("rw", db.vault, db.trash, async () => {
     const row = await db.vault.get("vault");
     if (!row || row.version !== expected)
       throw new Error("另一个标签页已修改本机数据，请重新载入后再删除");
+    if (row.conflict || row.pendingMove)
+      throw new Error("请先处理同步状态，再移入回收站");
     const paths = Object.keys(row.files).filter(
       (path) =>
         path === stem + ".md" ||
@@ -239,6 +244,7 @@ export async function restoreTrashEntry(
       files: { ...row.files, ...entry.files },
       attachments: { ...row.attachments, ...entry.attachments },
     };
+    validateContent(next.files, next.attachments);
     await db.vault.put(next);
     await db.trash.delete(id);
     return next;

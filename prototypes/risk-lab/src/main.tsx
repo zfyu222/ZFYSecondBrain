@@ -24,6 +24,9 @@ import {
   documentHistory,
   restoreHistoryPoint,
   type HistoryPoint,
+  moveToTrash,
+  restoreTrashEntry,
+  type TrashEntry,
   restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
@@ -69,6 +72,7 @@ function App() {
     [query, setQuery] = useState("");
   const [tagDraft, setTagDraft] = useState("");
   const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
+  const [trashEntries, setTrashEntries] = useState<TrashEntry[]>([]);
   const [destination, setDestination] = useState("raw/Areas/开始使用.md");
   const [jump, setJump] = useState<{ path: string; heading: string } | null>(
     null,
@@ -225,6 +229,54 @@ function App() {
       await writeQueue.current;
       accept(await restoreHistoryPoint(db, rowRef.current.version, id));
       setMessage("已恢复历史版本；恢复前内容已保留为恢复副本");
+    } catch (error) {
+      setError(String(error));
+    } finally {
+      operationBusy.current = false;
+      setBusy(false);
+    }
+  }
+  async function trashCurrent() {
+    if (operationBusy.current || !rowRef.current || (!hasMd && !hasMap)) return;
+    operationBusy.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await writeQueue.current;
+      if (saveFailure.current) throw new Error("请先处理本机保存错误");
+      const next = await moveToTrash(db, rowRef.current.version, active);
+      accept(next);
+      const remaining = [...new Set(
+        Object.keys(next.files)
+          .filter((path) => /\.(md|opml)$/.test(path))
+          .map((path) => path.replace(/\.(md|opml)$/, "")),
+      )];
+      if (remaining.length) {
+        setActive(remaining[0]);
+        setView(next.files[remaining[0] + ".md"] ? "markdown" : "map");
+      }
+      setMessage("已移入回收站；原始文件和附件均可恢复");
+    } catch (error) {
+      setError(String(error));
+    } finally {
+      operationBusy.current = false;
+      setBusy(false);
+    }
+  }
+  async function restoreTrash(id: string) {
+    if (operationBusy.current || !rowRef.current) return;
+    const entry = trashEntries.find((item) => item.id === id);
+    if (!entry) return;
+    operationBusy.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await writeQueue.current;
+      const next = await restoreTrashEntry(db, rowRef.current.version, id);
+      accept(next);
+      setActive(entry.stem);
+      setView(entry.files[entry.stem + ".md"] ? "markdown" : "map");
+      setMessage("已从回收站恢复；现有文件没有被覆盖");
     } catch (error) {
       setError(String(error));
     } finally {
@@ -428,6 +480,14 @@ function App() {
       .then(setHistoryPoints)
       .catch((error) => setError(String(error)));
   }, [active, hasMd, row?.version]);
+  useEffect(() => {
+    void db.trash
+      .orderBy("at")
+      .reverse()
+      .toArray()
+      .then(setTrashEntries)
+      .catch((error) => setError(String(error)));
+  }, [row?.version]);
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -560,6 +620,12 @@ function App() {
             </label>
             <button disabled={editingLocked || !hasMd} onClick={toggleFavorite}>
               {activeFavorite ? "★ 已喜爱" : "☆ 喜爱"}
+            </button>
+            <button
+              disabled={editingLocked || (!hasMd && !hasMap)}
+              onClick={() => void trashCurrent()}
+            >
+              移入回收站
             </button>
             {hasMd && (
               <div className="tag-entry">
@@ -919,6 +985,20 @@ function App() {
                     onClick={() => void restoreHistory(point.id)}
                   >
                     恢复 {new Date(point.at).toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            )}
+            {trashEntries.length > 0 && (
+              <div className="trash-entries">
+                <p>回收站（恢复不会覆盖现有路径）：</p>
+                {trashEntries.map((entry) => (
+                  <button
+                    key={entry.id}
+                    disabled={busy}
+                    onClick={() => void restoreTrash(entry.id)}
+                  >
+                    恢复 {entry.stem.split("/").pop()} · {new Date(entry.at).toLocaleString()}
                   </button>
                 ))}
               </div>

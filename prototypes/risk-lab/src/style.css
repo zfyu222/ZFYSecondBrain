@@ -597,6 +597,24 @@ h1 {
 .tool-row button {
   font-size: 11px;
 }
+.history-points,
+.trash-entries {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.history-points p,
+.trash-entries p {
+  margin: 0;
+  font-size: 12px;
+  color: #55665d;
+}
+.history-points button,
+.trash-entries button {
+  font-size: 11px;
+}
 .conflicts {
   border: 1px solid #d9b785;
   border-radius: 10px;
