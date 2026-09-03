@@ -33,6 +33,8 @@ pnpm preview:prototype
 
 Markdown 链接重写使用解析器提供的位置；支持转义、标题、查询、锚点及部分 Front Matter 引用。遇到需更新但尚未支持的 HTML 或未知结构化引用，会取消移动并保留原文。支持移动重写不等于预览已支持完整 OFM 渲染。
 
+阅读预览已支持 Wiki/普通库内链接、标题链接及折叠的 Front Matter 属性。库内链接在应用内打开；失效路径、失效标题和不支持的附件明确提示。媒体嵌入暂为原路径占位，不会自动加载外部资源。属性错误不改原文；Callout、高亮、公式和正文嵌入仍待实现。
+
 ## 数据位置
 
 - 服务端：本目录下 `.prototype-data/server/{raw,derived,state}`；已被 Git 忽略。

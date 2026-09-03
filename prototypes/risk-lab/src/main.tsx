@@ -3,8 +3,7 @@ import { createRoot } from "react-dom/client";
 import { conflictOptions } from "./core/merge";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MarkdownPreview } from "./MarkdownPreview";
 import {
   ReactFlow,
   Background,
@@ -340,6 +339,23 @@ function App() {
     [offline, setOffline] = useState(false),
     [query, setQuery] = useState("");
   const [destination, setDestination] = useState("raw/Areas/开始使用.md");
+  const [jump, setJump] = useState<{ path: string; heading: string } | null>(
+    null,
+  );
+  function openLinkedNote(path: string, heading?: string) {
+    setActive(path.replace(/\.(md|opml)$/, ""));
+    setView(path.endsWith(".opml") ? "map" : "markdown");
+    setJump(heading === undefined ? null : { path, heading });
+  }
+  useEffect(() => {
+    if (!jump || view !== "markdown" || active + ".md" !== jump.path) return;
+    const frame = requestAnimationFrame(() =>
+      document
+        .getElementById("user-content-" + jump.heading)
+        ?.scrollIntoView({ block: "start" }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [jump, active, view]);
   const [choices, setChoices] = useState<Record<string, "local" | "remote">>(
     {},
   );
@@ -637,22 +653,13 @@ function App() {
                 />
               </section>
               <section className="preview">
-                <div className="pane-label">阅读 / PREVIEW · GFM 子集</div>
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    a: ({ children, href }) => (
-                      <a href={href} target="_blank" rel="noreferrer">
-                        {children}
-                      </a>
-                    ),
-                    img: ({ alt }) => (
-                      <span>[图片：{alt} · 原型暂不加载附件]</span>
-                    ),
-                  }}
-                >
-                  {files[active + ".md"]}
-                </ReactMarkdown>
+                <div className="pane-label">阅读 / PREVIEW · OFM 子集</div>
+                <MarkdownPreview
+                  source={files[active + ".md"]}
+                  owner={active + ".md"}
+                  files={files}
+                  onOpen={openLinkedNote}
+                />
               </section>
             </div>
           )}

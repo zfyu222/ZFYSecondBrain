@@ -297,6 +297,57 @@ h1 {
 .preview a {
   color: #297762;
 }
+.markdown-reading {
+  padding: 8px 0 20px;
+}
+.markdown-reading pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  background: #f5f7f1;
+  border-radius: 6px;
+}
+.markdown-reading table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.markdown-reading th,
+.markdown-reading td {
+  border: 1px solid var(--line);
+  padding: 7px 10px;
+}
+.note-properties {
+  margin: 12px 0 20px;
+  color: #657a61;
+  font-size: 12px;
+}
+.note-properties summary {
+  cursor: pointer;
+}
+.note-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: #297762;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font: inherit;
+}
+.unavailable-link {
+  color: #947746;
+  text-decoration: underline dotted;
+}
+.unavailable-link small {
+  font-size: 10px;
+  margin-left: 3px;
+}
+.media-placeholder {
+  color: #83907d;
+  font-size: 12px;
+}
 .cm-editor {
   font-size: 13px;
 }

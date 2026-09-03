@@ -1,0 +1,157 @@
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkFrontmatter from "remark-frontmatter";
+import remarkWikiLink from "@flowershow/remark-wiki-link";
+import GithubSlugger from "github-slugger";
+import type { Root } from "mdast";
+import { pathSchema } from "./contracts";
+import { safeYaml } from "./formats";
+
+type PreviewNode = {
+  type: string;
+  value?: string;
+  depth?: number;
+  children?: PreviewNode[];
+  data?: {
+    alias?: string;
+    hName?: string;
+    hProperties?: Record<string, unknown>;
+    hChildren?: unknown[];
+  };
+};
+export const previewWikiOptions = {
+  format: "regular" as const,
+  caseInsensitive: false,
+};
+export const previewFrontmatterOptions = [
+  { type: "yaml", fence: { open: "---", close: "---" } },
+  { type: "yaml", fence: { open: "---", close: "..." } },
+];
+const parser = unified()
+  .use(remarkParse)
+  .use(remarkGfm)
+  .use(remarkFrontmatter, previewFrontmatterOptions)
+  .use(remarkWikiLink, previewWikiOptions);
+const textOf = (node: PreviewNode): string =>
+  node.type === "wikiLink"
+    ? (node.data?.alias ?? node.value ?? "")
+    : (node.value ?? node.children?.map(textOf).join("") ?? "");
+export function inspectMarkdown(source: string) {
+  const tree = parser.parse(source) as unknown as PreviewNode;
+  const first = tree.children?.[0];
+  let metadata: unknown,
+    metadataError = "";
+  if (first?.type === "yaml") {
+    try {
+      metadata = safeYaml(first.value ?? "");
+      if (
+        metadata !== null &&
+        (typeof metadata !== "object" || Array.isArray(metadata))
+      )
+        throw new Error("属性应为键值对象");
+    } catch (error) {
+      metadataError = String(error);
+    }
+  } else if (/^\uFEFF?---\r?\n/.test(source))
+    metadataError = "Front Matter 未闭合，原文仍保留";
+  const headings: { title: string; slug: string }[] = [],
+    slugger = new GithubSlugger();
+  const walk = (node: PreviewNode) => {
+    if (node.type === "heading") {
+      const title = textOf(node);
+      headings.push({ title, slug: slugger.slug(title) });
+    }
+    node.children?.forEach(walk);
+  };
+  walk(tree);
+  return { metadata, metadataError, headings };
+}
+
+export type NoteLink =
+  | { kind: "external"; href: string }
+  | { kind: "blocked"; reason: string }
+  | { kind: "missing"; path: string }
+  | { kind: "attachment"; path: string }
+  | { kind: "note"; path: string; heading?: string };
+export function resolveNoteLink(
+  target: string,
+  owner: string,
+  files: Record<string, string>,
+): NoteLink {
+  if (!target || /[\x00-\x20]/.test(target.replace(/ /g, "")))
+    return { kind: "blocked", reason: "无效链接" };
+  if (/^(https?:|mailto:)/i.test(target)) {
+    try {
+      const url = new URL(target);
+      if (url.protocol !== "mailto:" && !url.hostname) throw new Error();
+      return { kind: "external", href: url.href };
+    } catch {
+      return { kind: "blocked", reason: "无效外部地址" };
+    }
+  }
+  if (/^[a-z][a-z\d+.-]*:|^\/|\\/i.test(target))
+    return { kind: "blocked", reason: "不支持的协议或绝对路径" };
+  const split = target.indexOf("#"),
+    pathPart = (split < 0 ? target : target.slice(0, split)).split("?")[0];
+  let decoded: string, heading: string | undefined;
+  try {
+    decoded = decodeURIComponent(pathPart);
+    heading =
+      split < 0 ? undefined : decodeURIComponent(target.slice(split + 1));
+  } catch {
+    return { kind: "blocked", reason: "链接编码无效" };
+  }
+  if (heading?.startsWith("^"))
+    return { kind: "blocked", reason: "不支持 block-id 定位，请使用标题" };
+  let resolved = owner;
+  if (decoded) {
+    const parts = /^(raw|derived)\//.test(decoded)
+      ? []
+      : owner.split("/").slice(0, -1);
+    for (const part of decoded.split("/")) {
+      if (part === "..") {
+        if (!parts.length) return { kind: "blocked", reason: "路径越出知识库" };
+        parts.pop();
+      } else if (part !== ".") parts.push(part);
+    }
+    resolved = parts.join("/");
+  }
+  if (!pathSchema.safeParse(resolved).success)
+    return { kind: "blocked", reason: "链接不在支持的知识库路径中" };
+  const actual = [resolved, resolved + ".md", resolved + ".opml"].find((p) =>
+    Object.hasOwn(files, p),
+  );
+  if (!actual) return { kind: "missing", path: resolved };
+  if (!/\.(md|opml)$/.test(actual)) return { kind: "attachment", path: actual };
+  return { kind: "note", path: actual, heading };
+}
+
+/** Keep community parsing, adapt its output to our path policy and text-only risk scope. */
+export function remarkPreviewPolicy() {
+  return (root: Root) => {
+    const slugger = new GithubSlugger();
+    const walk = (node: PreviewNode) => {
+      if (node.type === "heading")
+        node.data = { hProperties: { id: slugger.slug(textOf(node)) } };
+      if (node.type === "wikiLink" || node.type === "embed") {
+        const embedded = node.type === "embed";
+        const value = node.value ?? "",
+          label = node.data?.alias ?? value;
+        // Never allow the plugin's automatic iframe/video/src elements to load resources.
+        node.data = {
+          hName: embedded ? "span" : "a",
+          hProperties: embedded ? {} : { href: value },
+          hChildren: [
+            {
+              type: "text",
+              value: embedded ? `[嵌入：${value} · 原型暂不加载]` : label,
+            },
+          ],
+        };
+      }
+      node.children?.forEach(walk);
+    };
+    walk(root as unknown as PreviewNode);
+  };
+}
