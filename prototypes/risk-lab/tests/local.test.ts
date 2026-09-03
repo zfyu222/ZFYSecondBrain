@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   LocalVault,
   moveDocument,
+  readEmergencyExport,
+  restoreEmergencyExport,
   resolveConflicts,
   synchronize,
 } from "../src/local";
@@ -37,6 +39,73 @@ describe("local persistence and sync queue", () => {
     db.close();
     await db.open();
     expect((await db.read()).files[p]).toBe("offline");
+  });
+  it("restores an emergency export as local content without reviving transport work", async () => {
+    const db = await fixture(),
+      row = await db.read();
+    const restored = await restoreEmergencyExport(db, row.version, {
+      protocolVersion: 2,
+      files: {
+        "raw/Inbox/recovered.md":
+          "# 恢复\n\n![[raw/Inbox/recovered.assets/a.png]]",
+      },
+      attachments: {
+        "raw/Inbox/recovered.assets/a.png": {
+          encoding: "base64",
+          data: "AA==",
+        },
+      },
+    });
+    expect(restored.files).toEqual({
+      "raw/Inbox/recovered.md":
+        "# 恢复\n\n![[raw/Inbox/recovered.assets/a.png]]",
+    });
+    expect(restored.attachments).toEqual({
+      "raw/Inbox/recovered.assets/a.png": { encoding: "base64", data: "AA==" },
+    });
+    expect(restored.base).toBeNull();
+    expect(restored.pending).toBeNull();
+    expect(restored.pendingMove).toBeNull();
+    expect(restored.conflict).toBeNull();
+    expect((await db.recovery.toArray())[0].state.files[p]).toBe("base");
+  });
+  it("rejects invalid emergency exports before changing local data", async () => {
+    const db = await fixture(),
+      row = await db.read();
+    await expect(
+      restoreEmergencyExport(db, row.version, {
+        protocolVersion: 2,
+        files: { "raw/Inbox/bad.md": "bad" },
+        attachments: {
+          "raw/Inbox/bad.assets/not-supported.svg": {
+            encoding: "base64",
+            data: "",
+          },
+        },
+      }),
+    ).rejects.toThrow();
+    expect(await db.read()).toEqual(row);
+    expect(await db.recovery.count()).toBe(0);
+  });
+  it("only accepts the explicit versioned emergency export shape", () => {
+    expect(
+      readEmergencyExport({
+        protocolVersion: 2,
+        files: { [p]: "x" },
+        attachments: {},
+      }),
+    ).toEqual({ protocolVersion: 2, files: { [p]: "x" }, attachments: {} });
+    expect(() =>
+      readEmergencyExport({ protocolVersion: 1, files: {}, attachments: {} }),
+    ).toThrow();
+    expect(() =>
+      readEmergencyExport({
+        protocolVersion: 2,
+        files: {},
+        attachments: {},
+        base: {},
+      }),
+    ).toThrow();
   });
   it("retains outbound request and reuses its identity after a lost response", async () => {
     const db = await fixture();

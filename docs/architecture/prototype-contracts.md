@@ -47,12 +47,12 @@ Callout 使用 [@r4ai/remark-callout](https://github.com/r4ai/remark-callout) 0.
 
 原型支持单根 OPML 2.0：`head/title`、`body/outline`；层级由嵌套确定，兄弟顺序由文件顺序确定。
 
-| 属性 | 含义 |
-| --- | --- |
-| `text` | 非空节点标题 |
-| `type` | 节点类型文本，默认 `topic`；UI 可选主题/标题/观点/例子/问题，已有自定义类型保留 |
-| `zfyBody` | Markdown 正文；属性中换行、回车、制表符使用 XML 数值实体 |
-| 其他 outline 属性 | 原样保留值，例如 `category`、`url`，暂不提供专门编辑 UI |
+| 属性              | 含义                                                                            |
+| ----------------- | ------------------------------------------------------------------------------- |
+| `text`            | 非空节点标题                                                                    |
+| `type`            | 节点类型文本，默认 `topic`；UI 可选主题/标题/观点/例子/问题，已有自定义类型保留 |
+| `zfyBody`         | Markdown 正文；属性中换行、回车、制表符使用 XML 数值实体                        |
+| 其他 outline 属性 | 原样保留值，例如 `category`、`url`，暂不提供专门编辑 UI                         |
 
 保存会规范化 XML 排版，但不应改变受支持内容。支持额外的单值文本 `head` 字段（例如作者、日期、窗口状态、自定义描述），以及文档/节点的扩展属性和限定名称；值原样保留，不作为指令执行。对象原型同名属性也作为自有数据处理。处理方式参考 [OPML 2.0 规范](https://opml.org/spec2.opml)，不代表已经通过其他软件的实测导入/导出。
 
@@ -105,12 +105,12 @@ relations:
 
 仅监听 `127.0.0.1:4173`，校验 Host/Origin，无用户认证、无公网暴露。所有响应为 JSON；静态页面和 API 同源。
 
-| 接口 | 输入 / 输出 |
-| --- | --- |
-| `GET /api/health` | 原型运行信息 |
+| 接口                | 输入 / 输出                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `GET /api/health`   | 原型运行信息                                                                                           |
 | `GET /api/snapshot` | `{ revision, files, moves, protocolVersion?, attachments? }`；有附件时要求请求头 `X-Vault-Protocol: 2` |
-| `POST /api/commit` | `{ protocolVersion: 2, requestId, expectedRevision, moveSequence, files, attachments }` → 新快照 |
-| `POST /api/move` | `{ protocolVersion: 2, requestId, expectedRevision, from, to }` → 新快照 |
+| `POST /api/commit`  | `{ protocolVersion: 2, requestId, expectedRevision, moveSequence, files, attachments }` → 新快照       |
+| `POST /api/move`    | `{ protocolVersion: 2, requestId, expectedRevision, from, to }` → 新快照                               |
 
 `revision` 是排序后文本、附件及移动记录的 SHA-256；无附件时保持旧散列兼容。提交是**完整内容快照**，缺失路径表示删除，不能把它误当局部 patch。正文单文件 200 万 JS 字符、总计 500 万字符；附件另有上述限制，HTTP body 合计上限 1200 万字节（JSON 转义/编码后仍可能先到达传输上限）。正式增量协议待实现。
 
@@ -137,6 +137,8 @@ relations:
 无版本号的旧冲突在首次读取时先备份，再从保留的原文和基线重新生成计划、增加本机版本号；重复读取不重复升级。未知未来版本停止读取，不猜测降级。不修改原始文件格式，不需要清空浏览器数据。
 
 附件分支另存于同一冲突计划的 `attachments`（自动保留部分）和 `attachmentItems`（双方/基线），与文本选择在同一事务中确认。应急导出包括全部附件编码；尚无导回 UI。
+
+应急草稿导出格式固定为严格的 `{ protocolVersion: 2, files, attachments }`。恢复只接受该完整形状，先校验路径、文本、附件编码和合计限额；覆盖本机草稿与写入其恢复副本属于同一个 IndexedDB 事务。导入不携带服务端基线、未确认提交、移动请求或冲突计划，因此不会重放过期网络操作；恢复完成后必须由用户手动发起同步，并可能按正常规则产生冲突。
 
 **升级使用约束**：先同步或导出草稿，关闭其他旧版原型标签页，再载入新构建。仅提高数据库版本不能保证旧代码拒绝访问；当前不支持新旧客户端同时写同一浏览器库，完整跨版本写入隔离仍待实现。
 

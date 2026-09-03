@@ -18,6 +18,7 @@ import {
   hasUnsyncedChanges,
   type LocalState,
   addAttachment,
+  restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
 import "./style.css";
@@ -78,6 +79,7 @@ function App() {
   const writeQueue = useRef(Promise.resolve());
   const saveFailure = useRef(false);
   const operationBusy = useRef(false);
+  const emergencyImport = useRef<HTMLInputElement>(null);
   function accept(next: LocalState) {
     rowRef.current = next;
     setRow(next);
@@ -244,6 +246,27 @@ function App() {
     } finally {
       operationBusy.current = false;
       setBusy(false);
+    }
+  }
+  async function importEmergencyExport(file: File) {
+    if (operationBusy.current || !rowRef.current) return;
+    operationBusy.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await writeQueue.current;
+      if (saveFailure.current) throw new Error("请先处理本机保存错误");
+      const exported = JSON.parse(await file.text()) as unknown;
+      accept(
+        await restoreEmergencyExport(db, rowRef.current.version, exported),
+      );
+      setMessage("已恢复到本机；旧同步请求未恢复，请检查后再同步");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      operationBusy.current = false;
+      setBusy(false);
+      if (emergencyImport.current) emergencyImport.current.value = "";
     }
   }
   function newNote(kind: "markdown" | "map") {
@@ -621,6 +644,22 @@ function App() {
                 }
               >
                 应急导出全部草稿
+              </button>
+              <input
+                ref={emergencyImport}
+                className="visually-hidden"
+                type="file"
+                accept="application/json,.json"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file) void importEmergencyExport(file);
+                }}
+              />
+              <button
+                disabled={busy}
+                onClick={() => emergencyImport.current?.click()}
+              >
+                恢复应急草稿
               </button>
               {Object.entries(row?.attachments ?? {})
                 .filter(([path]) => path.startsWith(active + ".assets/"))

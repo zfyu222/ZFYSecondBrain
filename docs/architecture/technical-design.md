@@ -13,20 +13,20 @@
 
 ## 2. 技术选择、用途与风险
 
-| 层 | 设计选择 | 选择理由及待验证内容 |
-| --- | --- | --- |
-| 工程 | TypeScript；pnpm workspace 单仓库 | 共用格式、领域规则和客户端接口；不为每个平台复制一份业务代码。[pnpm workspace](https://pnpm.io/workspaces) |
-| Web | React + Vite，静态 SPA，响应式布局 | 编辑型应用不需要 SEO/SSR；便于后续打包同一前端。[React 构建说明](https://react.dev/learn/build-a-react-app-from-scratch)、[Tauri 前端要求](https://v2.tauri.app/start/frontend/) |
-| Markdown 编辑 | CodeMirror 6，源码编辑 + 渲染预览；不承诺首版 Notion 式任意块编辑器 | 保留原始文本，支持可扩展编辑；中文输入法、手机选区和撤销必须实测。[CodeMirror](https://codemirror.net/) |
-| Markdown 解析 | Unified/Remark，延续已选 OFM 插件方向；渲染后白名单清理 HTML | 避免自造 Markdown 解析器；AST 用于分析，原始文本用于无损保存。插件组合兼容性仍需测试，见[格式文档](../requirements/markdown-format.md) |
-| 导图编辑 | React Flow 开源核心；elkjs 为自动布局候选；独立 OPML/YAML 适配器 | React Flow 提供节点和连线交互，不是开箱即用的完整思维导图编辑器；需补树规则、键盘、正文、撤销和关系操作。[React Flow](https://reactflow.dev/learn/concepts/adding-interactivity)、[elkjs](https://github.com/kieler/elkjs) |
-| Web 本地存储 | IndexedDB + Dexie；Service Worker 缓存应用静态资源 | 正文、基线与 outbox 在本地事务中保存；不依赖关闭浏览器后的后台运行。[Dexie](https://dexie.org/docs)、[Service Worker](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API) |
-| 原生壳 | Tauri 2；Rust 做系统适配；安卓控件用 Kotlin 原生组件 | 使用同一前端资源包，非仅加载 NAS 网页；可扩展原生插件，但不承诺所有插件在两端行为相同。[Tauri](https://v2.tauri.app/)、[移动插件](https://v2.tauri.app/develop/plugins/develop-mobile/) |
-| 知识库服务 | Node.js 受支持 LTS + TypeScript + Fastify | 与客户端共享格式和校验；单服务处理文件、索引、同步、认证和工具入口。[Node 发布策略](https://nodejs.org/en/about/previous-releases)、[Fastify](https://fastify.dev/docs/latest/) |
-| 索引 | SQLite + FTS5；通过独立存储适配器接入 | 不需独立数据库服务；中文短词单独处理；驱动、FTS 编译支持和 NAS CPU 二进制兼容须验证。[FTS5](https://www.sqlite.org/fts5.html) |
-| 管理员 | Python 独立服务 + nanobot 适配器，候选待验证 | 复用 Agent 能力，不把其框架状态变成知识唯一来源。[nanobot](https://github.com/HKUDS/nanobot) |
-| 部署 | 优先 Compose：知识库服务 + 可选管理员；NAS HTTPS 反向代理 | 群晖 Container Manager 的 Project 支持 Compose；具体型号可用性仍待核实。[群晖 Project](https://kb.synology.com/en-us/DSM/help/ContainerManager/docker_project) |
-| 测试 | TypeScript 单元/契约测试 + 浏览器端到端测试；原生设备另测 | 拟采用 Vitest、Playwright；原生壳、中文输入法和桌面控件不能只靠桌面浏览器模拟验收 |
+| 层            | 设计选择                                                            | 选择理由及待验证内容                                                                                                                                                                                                       |
+| ------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 工程          | TypeScript；pnpm workspace 单仓库                                   | 共用格式、领域规则和客户端接口；不为每个平台复制一份业务代码。[pnpm workspace](https://pnpm.io/workspaces)                                                                                                                 |
+| Web           | React + Vite，静态 SPA，响应式布局                                  | 编辑型应用不需要 SEO/SSR；便于后续打包同一前端。[React 构建说明](https://react.dev/learn/build-a-react-app-from-scratch)、[Tauri 前端要求](https://v2.tauri.app/start/frontend/)                                           |
+| Markdown 编辑 | CodeMirror 6，源码编辑 + 渲染预览；不承诺首版 Notion 式任意块编辑器 | 保留原始文本，支持可扩展编辑；中文输入法、手机选区和撤销必须实测。[CodeMirror](https://codemirror.net/)                                                                                                                    |
+| Markdown 解析 | Unified/Remark，延续已选 OFM 插件方向；渲染后白名单清理 HTML        | 避免自造 Markdown 解析器；AST 用于分析，原始文本用于无损保存。插件组合兼容性仍需测试，见[格式文档](../requirements/markdown-format.md)                                                                                     |
+| 导图编辑      | React Flow 开源核心；elkjs 为自动布局候选；独立 OPML/YAML 适配器    | React Flow 提供节点和连线交互，不是开箱即用的完整思维导图编辑器；需补树规则、键盘、正文、撤销和关系操作。[React Flow](https://reactflow.dev/learn/concepts/adding-interactivity)、[elkjs](https://github.com/kieler/elkjs) |
+| Web 本地存储  | IndexedDB + Dexie；Service Worker 缓存应用静态资源                  | 正文、基线与 outbox 在本地事务中保存；不依赖关闭浏览器后的后台运行。[Dexie](https://dexie.org/docs)、[Service Worker](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API)                                 |
+| 原生壳        | Tauri 2；Rust 做系统适配；安卓控件用 Kotlin 原生组件                | 使用同一前端资源包，非仅加载 NAS 网页；可扩展原生插件，但不承诺所有插件在两端行为相同。[Tauri](https://v2.tauri.app/)、[移动插件](https://v2.tauri.app/develop/plugins/develop-mobile/)                                    |
+| 知识库服务    | Node.js 受支持 LTS + TypeScript + Fastify                           | 与客户端共享格式和校验；单服务处理文件、索引、同步、认证和工具入口。[Node 发布策略](https://nodejs.org/en/about/previous-releases)、[Fastify](https://fastify.dev/docs/latest/)                                            |
+| 索引          | SQLite + FTS5；通过独立存储适配器接入                               | 不需独立数据库服务；中文短词单独处理；驱动、FTS 编译支持和 NAS CPU 二进制兼容须验证。[FTS5](https://www.sqlite.org/fts5.html)                                                                                              |
+| 管理员        | Python 独立服务 + nanobot 适配器，候选待验证                        | 复用 Agent 能力，不把其框架状态变成知识唯一来源。[nanobot](https://github.com/HKUDS/nanobot)                                                                                                                               |
+| 部署          | 优先 Compose：知识库服务 + 可选管理员；NAS HTTPS 反向代理           | 群晖 Container Manager 的 Project 支持 Compose；具体型号可用性仍待核实。[群晖 Project](https://kb.synology.com/en-us/DSM/help/ContainerManager/docker_project)                                                             |
+| 测试          | TypeScript 单元/契约测试 + 浏览器端到端测试；原生设备另测           | 拟采用 Vitest、Playwright；原生壳、中文输入法和桌面控件不能只靠桌面浏览器模拟验收                                                                                                                                          |
 
 版本策略：原型阶段选相互兼容的稳定版并锁定确切版本，正式初始化时生成锁文件；本文不写未经实际构建验证的 patch 版本。依赖版本变更须重新跑格式和同步契约测试。
 
@@ -102,11 +102,11 @@ NAS 知识库服务
 
 ### 三档备份的落地清单
 
-| 档位 | 包含 | 不包含的恢复能力 |
-| --- | --- | --- |
-| 最小化 | `raw/` 全部实际文件，包括附件和模板 | AI 结果、历史、配置、回收站、同步状态 |
-| 标准 | `raw/` + `derived/` | 历史、配置、回收站、同步和管理员状态 |
-| 完整 | `raw/`、`derived/`、`history/`、`trash/`、`config/`、`state/`、`manager/` | 可排除 `cache/`；设备登录态和外部模型密钥可以重新配置 |
+| 档位   | 包含                                                                      | 不包含的恢复能力                                      |
+| ------ | ------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 最小化 | `raw/` 全部实际文件，包括附件和模板                                       | AI 结果、历史、配置、回收站、同步状态                 |
+| 标准   | `raw/` + `derived/`                                                       | 历史、配置、回收站、同步和管理员状态                  |
+| 完整   | `raw/`、`derived/`、`history/`、`trash/`、`config/`、`state/`、`manager/` | 可排除 `cache/`；设备登录态和外部模型密钥可以重新配置 |
 
 服务端密钥不发给浏览器、不提交 Git；以受限权限的部署配置/secret 提供，恢复内容不依赖它们。完整备份应提醒管理员会话及配置的敏感性。
 
@@ -173,7 +173,7 @@ NAS 知识库服务
 - 管理员容器不挂载 `raw`、`derived`、历史和知识库密钥目录；只挂载自己的会话目录。
 - 不开放通用 shell、任意文件写入、互联网搜索和任意远程 MCP 连接；工具清单由部署配置确定，不由笔记内容动态注册。
 - 浏览器/调度器发起任务时，知识库产生与具体操作范围关联的授权记录；只读任务不能自行升级为写任务。管理员工具请求携带服务身份与任务授权，知识库服务再次校验。
-- 首版先以版本化 HTTP/JSON 接口适配工具；nanobot 适配器负责包装。MCP 可以后加，但不作为知识库协议和可迁移数据的前提。
+- 管理员工具以受控 **CIL（命令行工具接口）** 调用：每个能力是固定命令、固定参数 schema 和 JSON 输入/输出，运行在受限工作目录；知识库仍只接受版本化 HTTP/JSON 请求。CIL 适配器负责把模型的工作定义映射为这些命令，不能将模型文本拼接为 shell 命令。MCP 不进入首版架构，也不作为知识库协议和可迁移数据的前提。
 - 默认框架记忆、自动整理和重试行为都要审核：不能把对话变成正式知识，不能同时由框架和产品调度同一任务。
 - 若无法稳定限制工具/权限或适配成本过高，仅替换 `services/manager` 运行器；保持工具契约。备选为薄的模型工具调用执行器，不重写知识库。
 

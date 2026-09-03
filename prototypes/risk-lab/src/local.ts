@@ -1,9 +1,12 @@
 import Dexie, { type Table } from "dexie";
+import { z } from "zod";
 import {
   validateContent,
   type Change,
   type Snapshot,
   snapshotPayloadSchema,
+  filesSchema,
+  attachmentsSchema,
 } from "./core/contracts";
 import {
   encodeAttachment,
@@ -48,6 +51,19 @@ export type LocalState = {
   } | null;
 };
 type Recovery = { id: string; at: string; state: LocalState };
+const emergencyExportSchema = z
+  .object({
+    protocolVersion: z.literal(2),
+    files: filesSchema,
+    attachments: attachmentsSchema,
+  })
+  .strict();
+
+export function readEmergencyExport(input: unknown) {
+  const exported = emergencyExportSchema.parse(input);
+  validateContent(exported.files, exported.attachments);
+  return exported;
+}
 export class LocalVault extends Dexie {
   vault!: Table<LocalState, string>;
   recovery!: Table<Recovery, string>;
@@ -116,6 +132,38 @@ export class LocalVault extends Dexie {
       return next;
     });
   }
+}
+
+export async function restoreEmergencyExport(
+  db: LocalVault,
+  expected: number,
+  input: unknown,
+) {
+  const exported = readEmergencyExport(input);
+  return db.transaction("rw", db.vault, db.recovery, async () => {
+    const current = await db.vault.get("vault");
+    if (!current || current.version !== expected)
+      throw new Error("另一个标签页已修改本机数据，请重新载入后再恢复");
+    // The export is a content recovery point, not a transport checkpoint. Never
+    // revive an old request or move against an unknown current server revision.
+    await db.recovery.add({
+      id: crypto.randomUUID(),
+      at: new Date().toISOString(),
+      state: structuredClone(current),
+    });
+    const restored: LocalState = {
+      ...current,
+      version: current.version + 1,
+      files: exported.files,
+      attachments: exported.attachments,
+      base: null,
+      pending: null,
+      pendingMove: null,
+      conflict: null,
+    };
+    await db.vault.put(restored);
+    return restored;
+  });
 }
 function conflictState(
   remote: Snapshot,
