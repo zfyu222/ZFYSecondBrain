@@ -122,6 +122,22 @@ select:focus-visible {
 .archive-search input {
   margin: 0;
 }
+.space-filters {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.space-filters button {
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: #627368;
+  font-size: 11px;
+}
+.space-filters button.selected {
+  border-color: #9db6a4;
+  background: #e8f1e9;
+  color: #315a3b;
+}
 .section-label {
   font-size: 11px;
   letter-spacing: 2px;

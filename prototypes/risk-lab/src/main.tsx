@@ -47,6 +47,14 @@ const MarkdownPreview = lazy(() =>
 );
 
 const db = new LocalVault();
+const spaces = [
+  ["all", "全部"],
+  ["Inbox", "收件箱"],
+  ["Projects", "项目"],
+  ["Areas", "领域"],
+  ["Archive", "归档"],
+] as const;
+type Space = (typeof spaces)[number][0];
 function download(name: string, text: string) {
   const url = URL.createObjectURL(
     new Blob([text], { type: "text/plain;charset=utf-8" }),
@@ -71,6 +79,7 @@ function App() {
     [offline, setOffline] = useState(false),
     [query, setQuery] = useState("");
   const [includeArchive, setIncludeArchive] = useState(false);
+  const [space, setSpace] = useState<Space>("all");
   const [tagDraft, setTagDraft] = useState("");
   const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
   const [trashEntries, setTrashEntries] = useState<TrashEntry[]>([]);
@@ -477,6 +486,9 @@ function App() {
       return false;
     }
   };
+  const matchesSpace = (stem: string) =>
+    space === "all" || stem.startsWith(`raw/${space}/`);
+  const visibleNotes = notes.filter(matchesSpace).filter(matchesSearch);
   useEffect(() => {
     setChoices({});
   }, [row?.conflict]);
@@ -534,11 +546,22 @@ function App() {
             包含归档
           </label>
         )}
+        <div className="space-filters" aria-label="文件夹空间">
+          {spaces.map(([key, label]) => (
+            <button
+              key={key}
+              className={space === key ? "selected" : ""}
+              onClick={() => setSpace(key)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="section-label">
-          本机文档 <span>{notes.length}</span>
+          本机文档 <span>{visibleNotes.length}</span>
         </div>
         <nav>
-          {notes.filter(matchesSearch).map((n) => (
+          {visibleNotes.map((n) => (
             <button
               className={n === active ? "note active" : "note"}
               key={n}
