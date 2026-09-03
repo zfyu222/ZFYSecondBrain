@@ -9,6 +9,8 @@ import {
   restoreEmergencyExport,
   restoreHistoryPoint,
   documentHistory,
+  moveToTrash,
+  restoreTrashEntry,
   saveFilesWithHistory,
   resolveConflicts,
   synchronize,
@@ -92,6 +94,35 @@ describe("local persistence and sync queue", () => {
     expect(
       (await documentHistory(db, p)).map((item) => item.content),
     ).toContain("edited");
+  });
+  it("moves a full document bundle to trash and restores without overwriting", async () => {
+    const db = await fixture(),
+      row = await db.read();
+    const seeded = await db.update(row.version, (state) => ({
+      ...state,
+      files: {
+        [p]: "note",
+        "raw/Inbox/a.opml":
+          '<?xml version="1.0"?><opml version="2.0"><head><title>A</title></head><body><outline text="A" /></body></opml>',
+      },
+      attachments: {
+        "raw/Inbox/a.assets/p.png": { encoding: "base64", data: "AA==" },
+      },
+    }));
+    const trashed = await moveToTrash(
+      db,
+      seeded.version,
+      "raw/Inbox/a",
+      "2026-09-04T02:00:00.000Z",
+    );
+    expect(trashed.files[p]).toBeUndefined();
+    const entry = (await db.trash.toArray())[0];
+    const restored = await restoreTrashEntry(db, trashed.version, entry.id);
+    expect(restored.files[p]).toBe("note");
+    expect(restored.attachments?.["raw/Inbox/a.assets/p.png"]?.data).toBe(
+      "AA==",
+    );
+    expect(await db.trash.count()).toBe(0);
   });
   it("records readable recent document paths in newest-first order", async () => {
     const db = await fixture();

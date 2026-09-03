@@ -60,6 +60,13 @@ export type HistoryPoint = {
   at: string;
   content: string;
 };
+export type TrashEntry = {
+  id: string;
+  at: string;
+  stem: string;
+  files: Record<string, string>;
+  attachments: Attachments;
+};
 const emergencyExportSchema = z
   .object({
     protocolVersion: z.literal(2),
@@ -77,6 +84,7 @@ export class LocalVault extends Dexie {
   vault!: Table<LocalState, string>;
   recovery!: Table<Recovery, string>;
   history!: Table<HistoryPoint, string>;
+  trash!: Table<TrashEntry, string>;
   constructor(name = "zfy-risk-lab-v1") {
     super(name);
     this.version(1).stores({ vault: "id" });
@@ -86,6 +94,12 @@ export class LocalVault extends Dexie {
       vault: "id",
       recovery: "id,at",
       history: "id,path,at",
+    });
+    this.version(5).stores({
+      vault: "id",
+      recovery: "id,at",
+      history: "id,path,at",
+      trash: "id,at,stem",
     });
   }
   async read() {
@@ -147,6 +161,88 @@ export class LocalVault extends Dexie {
       return next;
     });
   }
+}
+
+export async function moveToTrash(
+  db: LocalVault,
+  expected: number,
+  stem: string,
+  at = new Date().toISOString(),
+) {
+  return db.transaction("rw", db.vault, db.trash, async () => {
+    const row = await db.vault.get("vault");
+    if (!row || row.version !== expected)
+      throw new Error("另一个标签页已修改本机数据，请重新载入后再删除");
+    const paths = Object.keys(row.files).filter(
+      (path) =>
+        path === stem + ".md" ||
+        path === stem + ".opml" ||
+        path === stem + ".relations.yaml",
+    );
+    if (!paths.length) throw new Error("当前文档不存在");
+    const attachmentPaths = Object.keys(row.attachments ?? {}).filter((path) =>
+      path.startsWith(stem + ".assets/"),
+    );
+    const files = Object.fromEntries(
+      paths.map((path) => [path, row.files[path]]),
+    );
+    const attachments = Object.fromEntries(
+      attachmentPaths.map((path) => [path, row.attachments![path]]),
+    );
+    await db.trash.add({
+      id: crypto.randomUUID(),
+      at,
+      stem,
+      files,
+      attachments,
+    });
+    const nextFiles = { ...row.files },
+      nextAttachments = { ...row.attachments },
+      recent = { ...row.recent };
+    paths.forEach((path) => delete nextFiles[path]);
+    attachmentPaths.forEach((path) => delete nextAttachments[path]);
+    delete recent[stem];
+    const next = {
+      ...structuredClone(row),
+      version: row.version + 1,
+      files: nextFiles,
+      attachments: nextAttachments,
+      recent,
+    };
+    await db.vault.put(next);
+    return next;
+  });
+}
+
+export async function restoreTrashEntry(
+  db: LocalVault,
+  expected: number,
+  id: string,
+) {
+  return db.transaction("rw", db.vault, db.trash, async () => {
+    const row = await db.vault.get("vault"),
+      entry = await db.trash.get(id);
+    if (!row || row.version !== expected)
+      throw new Error("另一个标签页已修改本机数据，请重新载入后再恢复");
+    if (!entry) throw new Error("回收站条目不存在");
+    if (
+      [...Object.keys(entry.files), ...Object.keys(entry.attachments)].some(
+        (path) =>
+          Object.hasOwn(row.files, path) ||
+          Object.hasOwn(row.attachments ?? {}, path),
+      )
+    )
+      throw new Error("原路径已被占用，拒绝覆盖现有文档");
+    const next = {
+      ...structuredClone(row),
+      version: row.version + 1,
+      files: { ...row.files, ...entry.files },
+      attachments: { ...row.attachments, ...entry.attachments },
+    };
+    await db.vault.put(next);
+    await db.trash.delete(id);
+    return next;
+  });
 }
 
 export async function saveFilesWithHistory(
