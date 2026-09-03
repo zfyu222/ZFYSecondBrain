@@ -21,6 +21,9 @@ import {
   recentDocuments,
   rememberRecent,
   saveFilesWithHistory,
+  documentHistory,
+  restoreHistoryPoint,
+  type HistoryPoint,
   restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
@@ -65,6 +68,7 @@ function App() {
     [offline, setOffline] = useState(false),
     [query, setQuery] = useState("");
   const [tagDraft, setTagDraft] = useState("");
+  const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
   const [destination, setDestination] = useState("raw/Areas/开始使用.md");
   const [jump, setJump] = useState<{ path: string; heading: string } | null>(
     null,
@@ -208,6 +212,21 @@ function App() {
       setMessage("选择已保存，请再次同步");
     } catch (e) {
       setError(String(e));
+    } finally {
+      operationBusy.current = false;
+      setBusy(false);
+    }
+  }
+  async function restoreHistory(id: string) {
+    if (operationBusy.current || !rowRef.current) return;
+    operationBusy.current = true;
+    setBusy(true);
+    try {
+      await writeQueue.current;
+      accept(await restoreHistoryPoint(db, rowRef.current.version, id));
+      setMessage("已恢复历史版本；恢复前内容已保留为恢复副本");
+    } catch (error) {
+      setError(String(error));
     } finally {
       operationBusy.current = false;
       setBusy(false);
@@ -403,6 +422,12 @@ function App() {
       setView(files[notes[0] + ".md"] !== undefined ? "markdown" : "map");
     }
   }, [files, active]);
+  useEffect(() => {
+    if (!hasMd) return setHistoryPoints([]);
+    void documentHistory(db, active + ".md")
+      .then(setHistoryPoints)
+      .catch((error) => setError(String(error)));
+  }, [active, hasMd, row?.version]);
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -884,6 +909,20 @@ function App() {
                 申请持久存储
               </button>
             </div>
+            {hasMd && historyPoints.length > 0 && (
+              <div className="history-points">
+                <p>本机历史恢复点（恢复前内容会保留）：</p>
+                {historyPoints.map((point) => (
+                  <button
+                    key={point.id}
+                    disabled={busy}
+                    onClick={() => void restoreHistory(point.id)}
+                  >
+                    恢复 {new Date(point.at).toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="tool-row">
               <input
                 aria-label="移动目标路径"

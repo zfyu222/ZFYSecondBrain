@@ -7,6 +7,8 @@ import {
   recentDocuments,
   rememberRecent,
   restoreEmergencyExport,
+  restoreHistoryPoint,
+  documentHistory,
   saveFilesWithHistory,
   resolveConflicts,
   synchronize,
@@ -69,6 +71,27 @@ describe("local persistence and sync queue", () => {
         .map((item) => item.content),
     ).toEqual(["base", "second"]);
     expect(third.files[p]).toBe("third");
+  });
+  it("restores a history point while retaining the current draft as recovery data", async () => {
+    const db = await fixture();
+    const edited = await saveFilesWithHistory(
+      db,
+      (await db.read()).version,
+      { [p]: "edited" },
+      "2026-09-04T00:00:00.000Z",
+    );
+    const point = (await documentHistory(db, p))[0];
+    const restored = await restoreHistoryPoint(
+      db,
+      edited.version,
+      point.id,
+      "2026-09-04T01:00:00.000Z",
+    );
+    expect(restored.files[p]).toBe("base");
+    expect((await db.recovery.toArray())[0].state.files[p]).toBe("edited");
+    expect(
+      (await documentHistory(db, p)).map((item) => item.content),
+    ).toContain("edited");
   });
   it("records readable recent document paths in newest-first order", async () => {
     const db = await fixture();

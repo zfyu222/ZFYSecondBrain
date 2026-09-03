@@ -175,6 +175,47 @@ export async function saveFilesWithHistory(
   });
 }
 
+export async function documentHistory(db: LocalVault, path: string) {
+  return (await db.history.where("path").equals(path).toArray()).sort((a, b) =>
+    b.at.localeCompare(a.at),
+  );
+}
+
+export async function restoreHistoryPoint(
+  db: LocalVault,
+  expected: number,
+  id: string,
+  at = new Date().toISOString(),
+) {
+  return db.transaction("rw", db.vault, db.recovery, db.history, async () => {
+    const row = await db.vault.get("vault"),
+      point = await db.history.get(id);
+    if (!row || row.version !== expected)
+      throw new Error("另一个标签页已修改本机数据，请重新载入后再恢复");
+    if (!point || !Object.hasOwn(row.files, point.path))
+      throw new Error("历史恢复点不存在或文档已移动，请保留当前草稿");
+    if (row.files[point.path] === point.content) return row;
+    await db.recovery.add({
+      id: crypto.randomUUID(),
+      at,
+      state: structuredClone(row),
+    });
+    await db.history.add({
+      id: crypto.randomUUID(),
+      path: point.path,
+      at,
+      content: row.files[point.path],
+    });
+    const next = {
+      ...structuredClone(row),
+      version: row.version + 1,
+      files: { ...row.files, [point.path]: point.content },
+    };
+    await db.vault.put(next);
+    return next;
+  });
+}
+
 export async function restoreEmergencyExport(
   db: LocalVault,
   expected: number,
