@@ -70,6 +70,7 @@ function App() {
   const [busy, setBusy] = useState(false),
     [offline, setOffline] = useState(false),
     [query, setQuery] = useState("");
+  const [includeArchive, setIncludeArchive] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
   const [trashEntries, setTrashEntries] = useState<TrashEntry[]>([]);
@@ -458,6 +459,12 @@ function App() {
   const editingLocked = busy || !!row?.conflict || !!row?.pendingMove;
   const matchesSearch = (stem: string) => {
     const markdown = files[stem + ".md"] ?? "";
+    if (
+      query.trim() &&
+      !includeArchive &&
+      stem.startsWith("raw/Archive/")
+    )
+      return false;
     const requestedTag = query.trim().startsWith("#")
       ? query.trim().slice(1).toLocaleLowerCase("en-US")
       : "";
@@ -517,6 +524,16 @@ function App() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        {query.trim() && (
+          <label className="archive-search">
+            <input
+              type="checkbox"
+              checked={includeArchive}
+              onChange={(event) => setIncludeArchive(event.target.checked)}
+            />
+            包含归档
+          </label>
+        )}
         <div className="section-label">
           本机文档 <span>{notes.length}</span>
         </div>

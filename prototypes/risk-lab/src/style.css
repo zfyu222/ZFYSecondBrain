@@ -111,6 +111,17 @@ select:focus-visible {
   width: 100%;
   background: #f8faf6;
 }
+.archive-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 4px 4px;
+  color: #627368;
+  font-size: 11px;
+}
+.archive-search input {
+  margin: 0;
+}
 .section-label {
   font-size: 11px;
   letter-spacing: 2px;
