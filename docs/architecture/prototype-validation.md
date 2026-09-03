@@ -11,6 +11,7 @@
 - `pnpm audit --prod`：此次查询未发现已知漏洞，不代表无漏洞或完整安全审计。
 - 编辑器拆包后入口 JS 约 767 KB（gzip 244 KB），Markdown 编辑器约 620 KB、导图编辑器约 188 KB；此前单入口约 1.58 MB。初始依赖图已缩小，但不等于真实加载时延/移动端性能验收，完整离线缓存仍下载全部分包。依赖注释仍有两项无效 PURE 注解警告。
 - 首轮 GitHub Actions：[运行 33729928112](https://github.com/zfyu222/ZFYSecondBrain/actions/runs/33729928112)，提交 `35b5369`，Ubuntu/Windows 标准运行器均完成锁定安装、当时的 181 项测试、构建和离线清单检查。后续新增测试不自动继承该结论；Linux CI 也不等于群晖或真实多设备验收。
+- 升级保护回归：[运行 33730872052](https://github.com/zfyu222/ZFYSecondBrain/actions/runs/33730872052)，提交 `0ae7cd6`，Ubuntu/Windows 均通过全部 190 项测试、类型检查、生产构建和不可变入口/编辑器分包检查。本记录后的仅文档提交不改变已测代码。
 
 ## 2. 自动化结果
 
