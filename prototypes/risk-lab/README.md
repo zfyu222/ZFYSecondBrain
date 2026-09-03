@@ -29,6 +29,8 @@ pnpm preview:prototype
 
 更新构建前请同步或导出草稿、关闭其他旧版原型标签页，再重新打开。旧冲突会先备份再升级，无需清空站点数据；当前不支持新旧客户端同时写同一个浏览器库。
 
+移动/重命名会写入可读的 `state/moves.json`，同步时先处理旧路径再比较正文。OPML 正文与 URL、配对关系 YAML 的文件名也会更新。历史移动后的同名新建或目标占用无法确定归属时会停止，保留草稿；仅大小写变化的重命名暂时拒绝。
+
 ## 数据位置
 
 - 服务端：本目录下 `.prototype-data/server/{raw,derived,state}`；已被 Git 忽略。
@@ -40,6 +42,6 @@ pnpm preview:prototype
 
 ## 尚未完成
 
-完整 OFM 预览、二进制附件、图内节点级冲突合并、OPML/YAML 全引用重写、跨设备移动链、正式历史/回收站/备份恢复、身份验证、AI、NAS 和原生端。完整限制见[契约](../../docs/architecture/prototype-contracts.md)与[验证报告](../../docs/architecture/prototype-validation.md)。
+完整 OFM 预览、二进制附件、图内节点级冲突合并、未知元数据/图谱的全引用重写、真实多设备验收、正式历史/回收站/备份恢复、身份验证、AI、NAS 和原生端。完整限制见[契约](../../docs/architecture/prototype-contracts.md)与[验证报告](../../docs/architecture/prototype-validation.md)。
 
 依赖均通过 npm/pnpm 引入现有开源组件，版本由根目录锁文件固定。仅允许 esbuild 的必要安装构建脚本。

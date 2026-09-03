@@ -39,11 +39,26 @@ export const changeSchema = z
   .object({
     requestId: z.string().min(8).max(100),
     expectedRevision: z.string().nullable(),
+    moveSequence: z.number().int().nonnegative().optional(),
     files: filesSchema,
   })
   .strict();
 export type Change = z.infer<typeof changeSchema>;
-export type Snapshot = { revision: string; files: Record<string, string> };
+export const moveRecordSchema = z
+  .object({
+    sequence: z.number().int().positive(),
+    from: pathSchema,
+    to: pathSchema,
+    at: z.string(),
+    paths: z.array(pathSchema).optional(),
+  })
+  .strict();
+export type MoveRecord = z.infer<typeof moveRecordSchema>;
+export type Snapshot = {
+  revision: string;
+  files: Record<string, string>;
+  moves?: MoveRecord[];
+};
 export const moveSchema = z
   .object({
     requestId: z.string().min(8).max(100),
@@ -60,7 +75,16 @@ export function validateFiles(files: Record<string, string>) {
   if (allPaths.some((p) => allPaths.some((other) => other.startsWith(p + "/"))))
     throw new Error("文件和目录路径冲突");
   const lower = new Set<string>();
+  const directories = new Map<string, string>();
   for (const [path, text] of Object.entries(files)) {
+    const parts = path.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      const prefix = parts.slice(0, i).join("/"),
+        key = prefix.normalize("NFC").toLocaleLowerCase("en-US");
+      if (directories.has(key) && directories.get(key) !== prefix)
+        throw new Error("目录存在跨平台大小写或 Unicode 别名");
+      directories.set(key, prefix);
+    }
     const folded = path.normalize("NFC").toLocaleLowerCase("en-US");
     if (lower.has(folded)) throw new Error("存在跨平台大小写或 Unicode 重名");
     lower.add(folded);

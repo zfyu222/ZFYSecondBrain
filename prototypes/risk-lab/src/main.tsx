@@ -19,6 +19,7 @@ import {
   moveDocument,
   resolveConflicts,
   synchronize,
+  hasUnsyncedChanges,
   type LocalState,
 } from "./local";
 import {
@@ -415,7 +416,11 @@ function App() {
       const next = await synchronize(db);
       accept(next);
       setMessage(
-        next.conflict ? "检测到冲突 · 请保留一版" : "已同步本地测试服务",
+        next.conflict
+          ? "检测到冲突 · 请保留一版"
+          : hasUnsyncedChanges(next)
+            ? "已收到服务端确认 · 本机仍有修改待同步"
+            : "已同步本地测试服务",
       );
     } catch (e) {
       setError(String(e));

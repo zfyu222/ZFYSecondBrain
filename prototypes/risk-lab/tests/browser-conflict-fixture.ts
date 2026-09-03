@@ -59,6 +59,7 @@ const committed = await fetch(origin + "/api/commit", {
   body: JSON.stringify({
     requestId: crypto.randomUUID(),
     expectedRevision: snapshot.revision,
+    moveSequence: snapshot.moves?.length ?? 0,
     files: { ...snapshot.files, ...changes },
   }),
 });

@@ -7,6 +7,7 @@ import {
   type MergeResult,
 } from "./core/merge";
 import { sampleFiles } from "./core/seed";
+import { alignMoves, moveSequence } from "./core/moves";
 
 export type MoveRequest = {
   requestId: string;
@@ -111,6 +112,12 @@ function conflictState(
     items: result.conflicts,
   };
 }
+export function hasUnsyncedChanges(row: LocalState) {
+  if (row.pending || row.pendingMove || row.conflict || !row.base) return true;
+  return [
+    ...new Set([...Object.keys(row.files), ...Object.keys(row.base.files)]),
+  ].some((p) => row.files[p] !== row.base!.files[p]);
+}
 export async function requestSnapshot(): Promise<Snapshot> {
   const response = await fetch("/api/snapshot", {
     cache: "no-store",
@@ -126,11 +133,12 @@ export async function synchronize(db: LocalVault): Promise<LocalState> {
   // Persist exact outbound payload. Retrying after a lost response must reuse it.
   if (!row.pending) {
     const remote = await requestSnapshot();
-    const result = mergeFiles(row.base?.files ?? {}, row.files, remote.files);
+    const aligned = alignMoves(row.base, row.files, remote);
+    const result = mergeFiles(aligned.baseFiles, aligned.files, remote.files);
     if (result.conflicts.length)
       return db.update(row.version, (r) => ({
         ...r,
-        conflict: conflictState(remote, row.base?.files ?? {}, result),
+        conflict: conflictState(remote, aligned.baseFiles, result),
       }));
     validateFiles(result.files);
     row = await db.update(row.version, (r) => ({
@@ -140,6 +148,7 @@ export async function synchronize(db: LocalVault): Promise<LocalState> {
       pending: {
         requestId: crypto.randomUUID(),
         expectedRevision: remote.revision,
+        moveSequence: moveSequence(remote),
         files: result.files,
       },
     }));
@@ -157,13 +166,14 @@ export async function synchronize(db: LocalVault): Promise<LocalState> {
     // Invalidate only the request. The local changes and previous base survive.
     const latest = await db.read();
     if (latest.pending?.requestId !== pending.requestId) return latest;
+    const aligned = alignMoves(latest.base, latest.files, remote);
     return db.update(latest.version, (r) => ({
       ...r,
       pending: null,
       conflict: conflictState(
         remote,
-        r.base?.files ?? {},
-        mergeFiles(r.base?.files ?? {}, r.files, remote.files),
+        aligned.baseFiles,
+        mergeFiles(aligned.baseFiles, aligned.files, remote.files),
       ),
     }));
   }

@@ -4,11 +4,13 @@ import { createHash } from "node:crypto";
 import {
   type Snapshot,
   type Change,
+  type MoveRecord,
   validateFiles,
   pathSchema,
 } from "../src/core/contracts";
 import { moveNote } from "../src/core/paths";
 import { sampleFiles } from "../src/core/seed";
+import { validateMoves } from "../src/core/moves";
 
 const digest = (data: unknown) =>
   createHash("sha256").update(JSON.stringify(data)).digest("hex");
@@ -31,7 +33,13 @@ export class FileStore {
   private queue: Promise<unknown> = Promise.resolve();
   constructor(
     public root: string,
-    private failAfter?: number,
+    private failAfter?:
+      | number
+      | "prepared"
+      | "files"
+      | "ledger"
+      | "moves"
+      | "committed",
   ) {}
   private async exclusive<T>(operation: () => Promise<T>): Promise<T> {
     const pending = this.queue.then(operation);
@@ -42,6 +50,19 @@ export class FileStore {
     pathSchema.parse(relative);
     let current = this.root;
     for (const part of relative.split("/")) {
+      const names = await fs
+        .readdir(current)
+        .catch((e: NodeJS.ErrnoException) => {
+          if (e.code !== "ENOENT") throw e;
+          return [];
+        });
+      const alias = names.find(
+        (name) =>
+          name.normalize("NFC").toLocaleLowerCase("en-US") ===
+          part.normalize("NFC").toLocaleLowerCase("en-US"),
+      );
+      if (alias !== undefined && alias !== part)
+        throw new Error("已有路径的大小写或 Unicode 拼写不同：" + part);
       current = path.join(current, part);
       const stat = await fs.lstat(current).catch((e: NodeJS.ErrnoException) => {
         if (e.code !== "ENOENT") throw e;
@@ -73,6 +94,23 @@ export class FileStore {
       throw e;
     }
   }
+  private fail(point: string) {
+    if (this.failAfter === point) throw new Error("INJECTED_CRASH:" + point);
+  }
+  private async movements(): Promise<MoveRecord[]> {
+    try {
+      const data = JSON.parse(
+        await fs.readFile(path.join(this.root, "state", "moves.json"), "utf8"),
+      );
+      if (data.version !== 1 || !Array.isArray(data.records))
+        throw new Error("未知移动记录格式");
+      validateMoves(data.records);
+      return data.records;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw e;
+    }
+  }
   async init(seed = true) {
     this.root = path.resolve(this.root);
     const rootStat = await fs.lstat(this.root).catch(() => undefined);
@@ -100,6 +138,7 @@ export class FileStore {
       await this.commit({
         requestId: "initial-seed-v1",
         expectedRevision: snapshot.revision,
+        moveSequence: snapshot.moves?.length ?? 0,
         files: sampleFiles(),
       });
   }
@@ -127,7 +166,14 @@ export class FileStore {
     const sorted = Object.fromEntries(
       Object.entries(files).sort(([a], [b]) => a.localeCompare(b)),
     );
-    return { revision: digest(sorted), files: sorted };
+    const moves = await this.movements();
+    return {
+      revision: moves.length
+        ? digest({ files: sorted, moves })
+        : digest(sorted),
+      files: sorted,
+      moves,
+    };
   }
   snapshot() {
     return this.exclusive(async () => {
@@ -174,6 +220,12 @@ export class FileStore {
     }
     if (journal.version !== 1) throw new Error("未知事务日志");
     const current = await this.readUnsafe();
+    const movementState = JSON.stringify(current.moves ?? []);
+    if (
+      movementState !== JSON.stringify(journal.before.moves ?? []) &&
+      movementState !== JSON.stringify(journal.after.moves ?? [])
+    )
+      throw new Error("恢复期间发现外部移动记录修改，保留现场并停止");
     for (const rel of new Set([
       ...Object.keys(current.files),
       ...Object.keys(journal.before.files),
@@ -194,15 +246,22 @@ export class FileStore {
       "ledger.json",
       committed ? journal.ledgerAfter : journal.ledgerBefore,
     );
+    await this.atomicJson("moves.json", {
+      version: 1,
+      records: (committed ? journal.after.moves : journal.before.moves) ?? [],
+    });
     await fs.unlink(journalPath);
   }
   private async commitUnsafe(
     change: Change,
     fingerprint = digest(change),
+    movement?: { from: string; to: string; paths: string[] },
   ): Promise<Snapshot> {
     await this.recover();
     try {
       validateFiles(change.files);
+      for (const relative of Object.keys(change.files))
+        await this.safePath(relative);
     } catch (e) {
       throw new RejectedError(String(e));
     }
@@ -213,6 +272,8 @@ export class FileStore {
       return ledgerBefore[change.requestId].result;
     }
     const before = await this.readUnsafe();
+    if ((change.moveSequence ?? 0) !== (before.moves?.length ?? 0))
+      throw new ConflictError(before);
     if (
       before.revision !== change.expectedRevision &&
       !(change.expectedRevision === null && !Object.keys(before.files).length)
@@ -221,7 +282,20 @@ export class FileStore {
     const sorted = Object.fromEntries(
       Object.entries(change.files).sort(([a], [b]) => a.localeCompare(b)),
     );
-    const after = { files: sorted, revision: digest(sorted) };
+    const moves = [...(before.moves ?? [])];
+    if (movement)
+      moves.push({
+        sequence: moves.length + 1,
+        ...movement,
+        at: new Date().toISOString(),
+      });
+    const after: Snapshot = {
+      files: sorted,
+      revision: moves.length
+        ? digest({ files: sorted, moves })
+        : digest(sorted),
+      moves,
+    };
     const ledgerAfter = {
       ...ledgerBefore,
       [change.requestId]: { fingerprint, result: after },
@@ -235,12 +309,20 @@ export class FileStore {
       ledgerAfter,
     };
     await this.atomicJson("journal.json", journal);
+    this.fail("prepared");
     // Detect observed external edits before touching originals. This is not an OS lock.
     if ((await this.readUnsafe()).revision !== before.revision)
       throw new Error("提交前发现外部修改");
     await this.apply(after.files, before.files, true);
+    this.fail("files");
+    if (digest((await this.readUnsafe()).files) !== digest(after.files))
+      throw new Error("落盘内容与提交不一致，停止并保留恢复日志");
     await this.atomicJson("ledger.json", ledgerAfter);
+    this.fail("ledger");
+    await this.atomicJson("moves.json", { version: 1, records: moves });
+    this.fail("moves");
     await this.atomicJson("journal.json", { ...journal, status: "committed" });
+    this.fail("committed");
     await fs.unlink(path.join(this.root, "state", "journal.json"));
     return after;
   }
@@ -275,9 +357,15 @@ export class FileStore {
         {
           requestId: input.requestId,
           expectedRevision: input.expectedRevision,
+          moveSequence: before.moves?.length ?? 0,
           files: moved.files,
         },
         fingerprint,
+        {
+          from: input.from,
+          to: input.to,
+          paths: Object.keys(before.files).filter((p) => p in moved.moves),
+        },
       );
     });
   }
