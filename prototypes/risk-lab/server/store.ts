@@ -33,10 +33,12 @@ export class ConflictError extends Error {
   }
 }
 export class RejectedError extends Error {}
+// One queue per lexical root inside this Node process. This is not an OS lock;
+// external editors and separate server processes still need independent fencing.
+const directoryQueues = new Map<string, Promise<unknown>>();
 export class FileStore {
-  private queue: Promise<unknown> = Promise.resolve();
   constructor(
-    public root: string,
+    public readonly root: string,
     private failAfter?:
       | number
       | "prepared"
@@ -44,10 +46,22 @@ export class FileStore {
       | "ledger"
       | "moves"
       | "committed",
-  ) {}
+  ) {
+    this.root = path.resolve(root);
+  }
   private async exclusive<T>(operation: () => Promise<T>): Promise<T> {
-    const pending = this.queue.then(operation);
-    this.queue = pending.catch(() => {});
+    const key =
+      process.platform === "win32"
+        ? this.root.normalize("NFC").toLowerCase()
+        : this.root;
+    const pending = (directoryQueues.get(key) ?? Promise.resolve()).then(
+      operation,
+    );
+    const tail = pending.catch(() => {});
+    directoryQueues.set(key, tail);
+    void tail.then(() => {
+      if (directoryQueues.get(key) === tail) directoryQueues.delete(key);
+    });
     return pending;
   }
   private async safePath(relative: string): Promise<string> {
@@ -124,8 +138,10 @@ export class FileStore {
       throw e;
     }
   }
-  async init(seed = true) {
-    this.root = path.resolve(this.root);
+  init(seed = true) {
+    return this.exclusive(() => this.initUnsafe(seed));
+  }
+  private async initUnsafe(seed: boolean) {
     await noLinkedAncestors(this.root);
     const incomplete = await fs
       .lstat(path.join(this.root, ".restore-incomplete"))
@@ -159,7 +175,7 @@ export class FileStore {
       if (stat?.isSymbolicLink()) throw new Error("原型目录不能含符号链接");
       await fs.mkdir(dest, { recursive: true });
     }
-    await this.recover();
+    await this.recoverUnsafe();
     await this.ledger();
     const snapshot = await this.readUnsafe();
     validateContent(snapshot.files, snapshot.attachments);
@@ -168,7 +184,7 @@ export class FileStore {
       !Object.keys(snapshot.files).length &&
       !Object.keys(snapshot.attachments ?? {}).length
     )
-      await this.commit({
+      await this.commitUnsafe({
         requestId: "initial-seed-v1",
         expectedRevision: snapshot.revision,
         moveSequence: snapshot.moves?.length ?? 0,
@@ -234,7 +250,7 @@ export class FileStore {
   }
   snapshot() {
     return this.exclusive(async () => {
-      await this.recover();
+      await this.recoverUnsafe();
       return this.readUnsafe();
     });
   }
@@ -283,7 +299,10 @@ export class FileStore {
         throw new Error("INJECTED_CRASH");
     }
   }
-  async recover() {
+  recover() {
+    return this.exclusive(() => this.recoverUnsafe());
+  }
+  private async recoverUnsafe() {
     const journalPath = path.join(this.root, "state", "journal.json");
     let journal: Journal;
     try {
@@ -347,7 +366,7 @@ export class FileStore {
     fingerprint = digest(change),
     movement?: { from: string; to: string; paths: string[] },
   ): Promise<Snapshot> {
-    await this.recover();
+    await this.recoverUnsafe();
     try {
       validateContent(change.files, change.attachments);
       if (change.attachments !== undefined && change.protocolVersion !== 2)
@@ -356,7 +375,7 @@ export class FileStore {
         ...Object.keys(change.files),
         ...Object.keys(change.attachments ?? {}),
       ])
-        await this.safePath(relative);
+        await noLinkedFile(await this.safePath(relative));
     } catch (e) {
       throw new RejectedError(String(e));
     }
@@ -474,7 +493,7 @@ export class FileStore {
     protocolVersion?: 2;
   }) {
     return this.exclusive(async () => {
-      await this.recover();
+      await this.recoverUnsafe();
       const fingerprint = digest({ kind: "move", ...input });
       const ledger = await this.ledger();
       const previous = Object.hasOwn(ledger, input.requestId)
