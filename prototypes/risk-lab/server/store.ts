@@ -11,18 +11,11 @@ import {
 import { moveNote } from "../src/core/paths";
 import { sampleFiles } from "../src/core/seed";
 import { validateMoves } from "../src/core/moves";
+import { journalSchema, ledgerSchema, type Ledger } from "./journal";
 
 const digest = (data: unknown) =>
   createHash("sha256").update(JSON.stringify(data)).digest("hex");
-type Ledger = Record<string, { fingerprint: string; result: Snapshot }>;
-type Journal = {
-  version: 1;
-  status: "prepared" | "committed";
-  before: Snapshot;
-  after: Snapshot;
-  ledgerBefore: Ledger;
-  ledgerAfter: Ledger;
-};
+type Journal = ReturnType<typeof journalSchema.parse>;
 export class ConflictError extends Error {
   constructor(public snapshot: Snapshot) {
     super("来源版本已变化");
@@ -86,8 +79,13 @@ export class FileStore {
   }
   private async ledger(): Promise<Ledger> {
     try {
-      return JSON.parse(
-        await fs.readFile(path.join(this.root, "state", "ledger.json"), "utf8"),
+      return ledgerSchema.parse(
+        JSON.parse(
+          await fs.readFile(
+            path.join(this.root, "state", "ledger.json"),
+            "utf8",
+          ),
+        ),
       );
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return {};
@@ -113,6 +111,14 @@ export class FileStore {
   }
   async init(seed = true) {
     this.root = path.resolve(this.root);
+    const incomplete = await fs
+      .lstat(path.join(this.root, ".restore-incomplete"))
+      .catch((e: NodeJS.ErrnoException) => {
+        if (e.code !== "ENOENT") throw e;
+        return undefined;
+      });
+    if (incomplete)
+      throw new Error("恢复尚未完成：保留独立目录，不可作为知识库打开");
     const rootStat = await fs.lstat(this.root).catch(() => undefined);
     if (rootStat?.isSymbolicLink()) throw new Error("原型根目录不能是符号链接");
     await fs.mkdir(this.root, { recursive: true });
@@ -133,7 +139,9 @@ export class FileStore {
       await fs.mkdir(dest, { recursive: true });
     }
     await this.recover();
+    await this.ledger();
     const snapshot = await this.readUnsafe();
+    validateFiles(snapshot.files);
     if (seed && !Object.keys(snapshot.files).length)
       await this.commit({
         requestId: "initial-seed-v1",
@@ -213,7 +221,9 @@ export class FileStore {
     const journalPath = path.join(this.root, "state", "journal.json");
     let journal: Journal;
     try {
-      journal = JSON.parse(await fs.readFile(journalPath, "utf8"));
+      journal = journalSchema.parse(
+        JSON.parse(await fs.readFile(journalPath, "utf8")),
+      );
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return;
       throw e;

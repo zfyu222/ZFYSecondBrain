@@ -42,6 +42,21 @@ Markdown 链接重写使用解析器提供的位置；支持转义、标题、�
 
 `localhost` 与 `127.0.0.1` 是不同浏览器 origin、各有本机存储。服务端账本包含历史快照但还不是正式文档历史；请勿依赖它长期保存真实资料。
 
+## 三档恢复实验
+
+以下命令只处理本原型 `.prototype-data` 下的测试副本，不提供整库备份创建、上传或定时备份：
+
+```sh
+pnpm --filter @zfy/risk-lab exec tsx server/restore-cli.ts --list
+pnpm --filter @zfy/risk-lab exec tsx server/restore-cli.ts minimal .prototype-data/外部测试备份 .prototype-data/新的恢复目录
+```
+
+源目录由外部备份软件提供；最小档必须含 `raw`，标准档必须含 `raw`、`derived`。完整档额外复制实际存在的 `history`、`trash`、`config`、`state`、`manager`，排除 `cache`；缺少的目录会列在报告中。目标必须尚不存在，不允许覆盖、嵌套于源或经过符号链接。
+
+完整档会在新副本内恢复已识别的事务，源保持不变。成功生成 `.restore-report.json`；失败保留现场和 `.restore-incomplete` 标记，正常初始化会拒绝打开。重新尝试需使用另一个新目录，不自动清理失败副本。恢复命令不启动服务、同步或 AI，也不改当前服务的数据位置；与旧设备重新配对尚未实现。
+
+目前仅验证 UTF-8 原型内容：最多 1000 个目录/文件项、50 MB 复制总量，正文仍受原型 100 文件等限制。未实现正式历史/配置的语义恢复及二进制附件。没有外部文件清单时，无法证明源没有遗漏文件；目录散列复查不能替代暂停写入或一致性快照。浏览器未同步草稿不在服务端目录备份中。
+
 ## 尚未完成
 
 完整 OFM 预览、二进制附件、图内节点级冲突合并、未知元数据/图谱的全引用重写、真实多设备验收、正式历史/回收站/备份恢复、身份验证、AI、NAS 和原生端。完整限制见[契约](../../docs/architecture/prototype-contracts.md)与[验证报告](../../docs/architecture/prototype-validation.md)。
