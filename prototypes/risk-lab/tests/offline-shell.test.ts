@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 import { offlineAssets, offlineShell } from "../server/offline-shell";
 
 const origin = "http://127.0.0.1:4173",
-  version = "risk-lab-current";
+  version = "risk-lab-current",
+  shell = `offline-shell-${"a".repeat(64)}.html`;
 const names = [
+  shell,
   "assets/index.js",
   "assets/MarkdownEditor.js",
   "assets/MapEditor.js",
@@ -44,7 +46,7 @@ function worker(failInstall = false) {
   };
   runInNewContext(
     offlineShell(version, offlineAssets(names)),
-    { self, caches, fetch, URL },
+    { self, caches, fetch, URL, Response },
     { timeout: 1000 },
   );
   const lifecycle = async (type: string) => {
@@ -71,19 +73,25 @@ function worker(failInstall = false) {
 describe("offline shell and lazy editor cache", () => {
   it("includes every generated editor chunk and stylesheet, excludes maps and the worker itself", () => {
     expect(
-      offlineAssets([...names, "assets/index.js.map", "index.html", "sw.js"]),
+      offlineAssets([
+        ...names,
+        "assets/index.js",
+        "assets/index.js.map",
+        "index.html",
+        "sw.js",
+      ]),
     ).toEqual([
-      "/",
       "/assets/MapEditor.css",
       "/assets/MapEditor.js",
       "/assets/MarkdownEditor.js",
       "/assets/index.js",
+      "/" + shell,
     ]);
   });
   it("preloads both editors and serves them from cache without a network call", async () => {
     const test = worker();
     await test.lifecycle("install");
-    expect(test.self.skipWaiting).toHaveBeenCalledOnce();
+    expect(test.self.skipWaiting).not.toHaveBeenCalled();
     for (const file of names)
       expect(await test.request("/" + file)).toEqual({
         ok: true,
@@ -96,27 +104,58 @@ describe("offline shell and lazy editor cache", () => {
     await expect(test.lifecycle("install")).rejects.toThrow("CACHE_FULL");
     expect(test.self.skipWaiting).not.toHaveBeenCalled();
   });
-  it("returns the cached application shell after a rejected navigation request", async () => {
+  it("pins navigations to the installed shell without asking for a newer network entry", async () => {
     const test = worker();
     await test.lifecycle("install");
     test.fetch.mockRejectedValueOnce(new Error("OFFLINE"));
     expect(await test.request("/", "GET", "navigate")).toEqual({
       ok: true,
-      cached: "/",
+      cached: "/" + shell,
+    });
+    expect(test.fetch).not.toHaveBeenCalled();
+    expect(await test.request("/?another-tab", "GET", "navigate")).toEqual({
+      ok: true,
+      cached: "/" + shell,
     });
   });
-  it("uses a valid online shell, but falls back on HTTP errors", async () => {
+  it("only fetches the same immutable entry if the shell was evicted", async () => {
     const test = worker();
     await test.lifecycle("install");
+    test.storage.get(version)!.delete(origin + "/" + shell);
     expect(await test.request("/", "GET", "navigate")).toEqual({
       ok: true,
       network: true,
     });
-    test.fetch.mockResolvedValueOnce({ ok: false, network: true });
-    expect(await test.request("/", "GET", "navigate")).toEqual({
-      ok: true,
-      cached: "/",
-    });
+    expect(test.fetch).toHaveBeenCalledWith("/" + shell);
+  });
+  it.each(["http", "network"])(
+    "does not mix in a new root entry after a %s failure",
+    async (failure) => {
+      const test = worker();
+      await test.lifecycle("install");
+      test.storage.get(version)!.delete(origin + "/" + shell);
+      if (failure === "http")
+        test.fetch.mockResolvedValueOnce({ ok: false, network: true });
+      else test.fetch.mockRejectedValueOnce(new Error("OFFLINE"));
+      const response = (await test.request("/", "GET", "navigate")) as Response;
+      expect(response.status).toBe(503);
+      expect(await response.text()).toContain("不要清除浏览器数据");
+      expect(test.fetch).toHaveBeenCalledExactlyOnceWith("/" + shell);
+    },
+  );
+  it("does not delete an active version's assets during installation", async () => {
+    const test = worker();
+    await test.caches.open("risk-lab-old");
+    await test.lifecycle("install");
+    expect(test.storage.has("risk-lab-old")).toBe(true);
+    expect(test.self.skipWaiting).not.toHaveBeenCalled();
+    expect(test.self.clients.claim).not.toHaveBeenCalled();
+  });
+  it("rejects absent or ambiguous immutable entries", () => {
+    expect(() => offlineShell(version, ["/"])).toThrow("唯一");
+    expect(() =>
+      offlineShell(version, ["/" + shell, `/offline-shell-${"b".repeat(64)}.html`]),
+    ).toThrow("唯一");
   });
   it("never intercepts API calls, mutations, external origins or unknown resources", async () => {
     const test = worker();
@@ -140,6 +179,6 @@ describe("offline shell and lazy editor cache", () => {
       "another-application",
       version,
     ]);
-    expect(test.self.clients.claim).toHaveBeenCalledOnce();
+    expect(test.self.clients.claim).not.toHaveBeenCalled();
   });
 });

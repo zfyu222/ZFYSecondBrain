@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { conflictOptions } from "./core/merge";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { EditorBoundary } from "./EditorBoundary";
+import { observeOfflineStatus, offlineStatusText } from "./offline-status";
 import {
   LocalVault,
   moveDocument,
@@ -37,6 +38,7 @@ function App() {
     [view, setView] = useState<"markdown" | "map">("markdown");
   const [message, setMessage] = useState("正在打开本机数据…"),
     [error, setError] = useState("");
+  const [offlineNotice, setOfflineNotice] = useState("");
   const [busy, setBusy] = useState(false),
     [offline, setOffline] = useState(false),
     [query, setQuery] = useState("");
@@ -92,10 +94,24 @@ function App() {
     return () => window.removeEventListener("online", onOnline);
   }, [offline]);
   useEffect(() => {
-    if (import.meta.env.PROD && "serviceWorker" in navigator)
-      void navigator.serviceWorker
-        .register("/sw.js")
-        .catch((e) => setError("离线界面缓存失败：" + e));
+    if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+    void navigator.serviceWorker
+      .register("/sw.js", { updateViaCache: "none" })
+      .then((registration) => {
+        if (!cancelled)
+          cleanup = observeOfflineStatus(registration, (status) =>
+            setOfflineNotice(offlineStatusText[status]),
+          );
+      })
+      .catch(() => {
+        if (!cancelled) setOfflineNotice(offlineStatusText.failed);
+      });
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, []);
   function update(changes: Record<string, string | undefined>) {
     const nextFiles = { ...filesRef.current };
@@ -319,6 +335,9 @@ function App() {
               重新载入已保存数据
             </button>
           </div>
+        )}
+        {offlineNotice && (
+          <div className="notice" role="status">{offlineNotice}</div>
         )}
         <div className="tabs">
           <button
