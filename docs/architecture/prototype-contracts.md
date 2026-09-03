@@ -18,7 +18,11 @@
 
 Wiki 语法使用 `@flowershow/remark-wiki-link@3.4.0`，显式路径由项目解析，不启用模糊全库 basename 匹配。普通和 Wiki 库内链接均在当前应用打开 `.md`/`.opml`；标题支持原文标题或可读 slug，重复标题的 slug 加序号。标题不存在、文档丢失、附件未支持时明确提示，不打开错误 HTTP 路径。标题改名的引用维护仍待实现，不能将只读定位视为改名维护完成。
 
-Front Matter 使用 `remark-frontmatter@5.0.0`，支持 `---`/`...` 结束标记；值由现有 YAML 校验读取。渲染使用 `rehype-sanitize@6.0.0` 白名单，原始 HTML 跳过，禁止脚本/文件协议和绝对站点路径。外部 http(s)/mailto 链接需用户点击；新窗口带 `noopener noreferrer`。媒体和文档嵌入全部转为含原始路径的占位文本，不自动加载插件产生的 iframe、播放器或图片。正文嵌入、二进制媒体和完整 OFM 尚未完成。
+Front Matter 使用 `remark-frontmatter@5.0.0`，支持 `---`/`...` 结束标记；值由现有 YAML 校验读取。渲染使用 `rehype-sanitize@6.0.0` 白名单，原始 HTML 跳过，禁止脚本/文件协议和绝对站点路径。外部 http(s)/mailto 链接需用户点击；新窗口带 `noopener noreferrer`。媒体嵌入保留路径占位，不自动加载插件产生的 iframe、播放器或图片。二进制媒体和完整 OFM 尚未完成。
+
+正文嵌入使用同一 remark AST：独占段落的 `![[路径.md#可选标题|可选别名]]` 展开整篇或对应标题至下一个同级/上级标题前的内容。嵌入不显示来源 Front Matter；标题选区保留文档范围的引用式链接/脚注定义。相对链接按来源路径解析，重复嵌入的标题、脚注和定义使用渲染时前缀隔离，不写入原文。句中嵌入退化为打开原文链接。来源导航与已有移动重写兼容。
+
+展开上限为 4 层、24 次、累计来源 200,000 个 JS 字符；标题引用按整篇解析量计数。按来源路径和规范标题检测循环，缺失/错误/超限仅显示提示。所有嵌入共享主文档的公式预算及 HTML 安全策略；不抓取外部文档，不执行块 ID、媒体或脚本。仅验证静态渲染与原文不变，未完成实际浏览器布局/导航验收。
 
 Callout 使用 [@r4ai/remark-callout](https://github.com/r4ai/remark-callout) 0.6.2，支持自定义标题、类型、嵌套、`+` 默认展开和 `-` 默认收起；原生 `details/summary` 只改变阅读状态，不写回 Markdown。自定义类型使用通用样式，不执行自定义 CSS。适配层保护被反斜杠/实体转义的标记，保留普通引用。高亮使用 [remark-highlight-mark](https://github.com/shlroland/remark-highlight-mark) 1.4.0 的语法解析，适配其 `highlight` 节点为 `mark`，支持内部强调与链接，不通过全局正则替换原文。
 

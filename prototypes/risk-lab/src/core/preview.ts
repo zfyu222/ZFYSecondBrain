@@ -14,12 +14,14 @@ import type { Root } from "mdast";
 import { pathSchema } from "./contracts";
 import { safeYaml } from "./formats";
 
-type PreviewNode = {
+export type PreviewNode = {
   type: string;
   value?: string;
   lang?: string | null;
   position?: { start: { offset?: number } };
   depth?: number;
+  identifier?: string;
+  url?: string;
   children?: PreviewNode[];
   data?: {
     alias?: string;
@@ -96,15 +98,15 @@ export const previewRemarkPlugins: PluggableList = [
   remarkPreviewPolicy,
 ];
 const parser = unified().use(remarkParse).use(previewRemarkPlugins);
-const textOf = (node: PreviewNode): string =>
+export const textOf = (node: PreviewNode): string =>
   node.type === "wikiLink"
     ? (node.data?.alias ?? node.value ?? "")
     : (node.value ?? node.children?.map(textOf).join("") ?? "");
+export function parsePreview(source: string) {
+  return parser.runSync(parser.parse(source), source) as unknown as PreviewNode;
+}
 export function inspectMarkdown(source: string) {
-  const tree = parser.runSync(
-    parser.parse(source),
-    source,
-  ) as unknown as PreviewNode;
+  const tree = parsePreview(source);
   const first = tree.children?.[0];
   let metadata: unknown,
     metadataError = "";
@@ -197,28 +199,9 @@ export function resolveNoteLink(
 export function remarkPreviewPolicy() {
   return (root: Root) => {
     const slugger = new GithubSlugger();
-    let mathCount = 0,
-      mathLength = 0;
+    limitMathNodes(root as unknown as PreviewNode);
     const walk = (node: PreviewNode) => {
       if (node.type === "highlight") node.data = { hName: "mark" };
-      if (
-        node.type === "math" ||
-        node.type === "inlineMath" ||
-        (node.type === "code" && node.lang === "math")
-      ) {
-        mathCount++;
-        mathLength += node.value?.length ?? 0;
-        if (
-          (node.value?.length ?? 0) > 8192 ||
-          mathCount > 200 ||
-          mathLength > 65536
-        ) {
-          node.type = node.type === "inlineMath" ? "inlineCode" : "code";
-          node.lang = "text";
-          node.value = "[公式超过预览上限，保留源码] " + node.value;
-          node.data = undefined;
-        }
-      }
       if (node.type === "wikiLink" || node.type === "embed") {
         const embedded = node.type === "embed";
         const value = node.value ?? "",
@@ -242,4 +225,28 @@ export function remarkPreviewPolicy() {
     };
     walk(root as unknown as PreviewNode);
   };
+}
+
+/** A whole rendered document, including embeds, shares a finite math budget. */
+export function limitMathNodes(root: PreviewNode) {
+  let count = 0,
+    length = 0;
+  const walk = (node: PreviewNode) => {
+    if (
+      node.type === "math" ||
+      node.type === "inlineMath" ||
+      (node.type === "code" && node.lang === "math")
+    ) {
+      count++;
+      length += node.value?.length ?? 0;
+      if ((node.value?.length ?? 0) > 8192 || count > 200 || length > 65536) {
+        node.type = node.type === "inlineMath" ? "inlineCode" : "code";
+        node.lang = "text";
+        node.value = "[公式超过预览上限，保留源码] " + node.value;
+        node.data = undefined;
+      }
+    }
+    node.children?.forEach(walk);
+  };
+  walk(root);
 }

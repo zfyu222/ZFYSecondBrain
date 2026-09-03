@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
+import { remarkDocumentEmbeds } from "./core/embeds";
 import {
   inspectMarkdown,
   previewRemarkPlugins,
@@ -13,13 +14,32 @@ import {
 // trust:false disables its URL/image/HTML commands, including ordinary HTTPS.
 const previewSchema = {
   ...defaultSchema,
-  tagNames: [...(defaultSchema.tagNames ?? []), "mark"],
+  tagNames: [...(defaultSchema.tagNames ?? []), "mark", "section"],
   attributes: {
     ...defaultSchema.attributes,
     code: [["className", "math-inline", "math-display", /^language-./]],
+    a: [...(defaultSchema.attributes?.a ?? []), "dataNoteOwner"],
+    section: [
+      ["className", "note-embed", "footnotes"],
+      ...(defaultSchema.attributes?.section ?? []).filter(
+        (attribute) =>
+          (Array.isArray(attribute) ? attribute[0] : attribute) !== "className",
+      ),
+      "dataEmbedPath",
+    ],
+    p: [
+      ...(defaultSchema.attributes?.p ?? []),
+      ["className", "embed-unavailable"],
+    ],
     div: [
       ...(defaultSchema.attributes?.div ?? []),
-      ["className", "callout", "callout-title", "callout-body"],
+      [
+        "className",
+        "callout",
+        "callout-title",
+        "callout-body",
+        "embed-heading",
+      ],
       "dataCalloutType",
     ],
     details: [
@@ -79,7 +99,10 @@ export function MarkdownPreview({
         </details>
       )}
       <ReactMarkdown
-        remarkPlugins={previewRemarkPlugins}
+        remarkPlugins={[
+          ...previewRemarkPlugins,
+          [remarkDocumentEmbeds, { owner, files }],
+        ]}
         remarkRehypeOptions={{ clobberPrefix: "" }}
         rehypePlugins={[
           [rehypeSanitize, previewSchema],
@@ -98,7 +121,15 @@ export function MarkdownPreview({
                 node?.properties.dataFootnoteBackref !== undefined)
             )
               return <a href={"#user-content-" + href.slice(1)}>{children}</a>;
-            const link = resolveNoteLink(href ?? "", owner, files);
+            const linkedOwner = node?.properties.dataNoteOwner;
+            const link = resolveNoteLink(
+              href ?? "",
+              typeof linkedOwner === "string" &&
+                Object.hasOwn(files, linkedOwner)
+                ? linkedOwner
+                : owner,
+              files,
+            );
             if (link.kind === "external")
               return (
                 <a href={link.href} target="_blank" rel="noopener noreferrer">

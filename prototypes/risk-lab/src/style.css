@@ -464,6 +464,22 @@ h1 {
   border-radius: 2px;
   padding: 0 0.1em;
 }
+.markdown-reading .note-embed {
+  border: 1px solid var(--line);
+  border-left: 3px solid #62816b;
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1rem 0;
+  min-width: 0;
+}
+.markdown-reading .embed-heading {
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+.markdown-reading .embed-unavailable {
+  color: #806b47;
+  overflow-wrap: anywhere;
+}
 .markdown-reading .callout {
   --callout-color: #456b58;
   margin: 1rem 0;
