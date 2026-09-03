@@ -1,0 +1,41 @@
+{
+  "name": "@zfy/risk-lab",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server/main.ts",
+    "start": "tsx server/main.ts --production",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@codemirror/lang-markdown": "^6.3.4",
+    "@uiw/react-codemirror": "4.25.11",
+    "@xyflow/react": "12.11.6",
+    "dexie": "^4.0.11",
+    "fast-xml-parser": "5.11.1",
+    "fastify": "^5.6.0",
+    "node-diff3": "3.2.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5",
+    "yaml": "^2.8.1",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "fake-indexeddb": "^6.2.0",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.3",
+    "vite": "7.3.6",
+    "vitest": "^3.2.4"
+  }
+}

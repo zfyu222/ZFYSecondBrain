@@ -1,0 +1,4 @@
+packages:
+  - prototypes/*
+allowBuilds:
+  esbuild: true

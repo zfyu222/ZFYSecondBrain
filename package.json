@@ -1,0 +1,12 @@
+{
+  "name": "zfy-second-brain",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev:prototype": "pnpm --filter @zfy/risk-lab dev",
+    "build": "pnpm --filter @zfy/risk-lab build",
+    "test": "pnpm --filter @zfy/risk-lab test",
+    "typecheck": "pnpm --filter @zfy/risk-lab typecheck",
+    "preview:prototype": "pnpm --filter @zfy/risk-lab start"
+  }
+}

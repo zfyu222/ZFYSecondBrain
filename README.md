@@ -1,16 +1,29 @@
 # ZFY Second Brain
 
-一个处于技术设计阶段的个人第二大脑/笔记软件项目。
+一个处于关键风险原型验证阶段的个人第二大脑/笔记软件项目。
 
 ## 当前状态
 
-项目仓库已完成初始化，首版范围和技术设计基线已整理；尚未安装业务依赖，也未开始业务实现。
+项目仓库已完成初始化、首版范围和技术设计；现有独立本地原型可体验 Markdown/导图编辑、持久化、同步与部分路径移动。尚不是正式首版，不连接真实知识库、AI 或 NAS。
 
 目标客户端为 Web、安卓和 Windows，优先支持 Web；服务端计划自托管于用户的群晖 NAS。
 
 首版限定单用户、单知识库，包含 Markdown/思维导图编辑、必要离线与同步、独立 AI 管理员及每日记忆整理。完整分层图谱、原生客户端和安卓控件后续实施，不混入可选想法池。
 
-技术基线：React + TypeScript + Vite 共享前端，Node.js/Fastify 知识库服务，原格式文件 + 可重建 SQLite 索引；原生端 Tauri 2 和管理员 nanobot 适配器需验证。下一步完成格式/API 契约与关键风险原型，不能把选型方案当作已实现或已验证。
+技术基线：React + TypeScript + Vite 共享前端，Node.js/Fastify 知识库服务，原格式文件 + 可重建 SQLite 索引；原型暂未使用 SQLite，原生端 Tauri 2 和管理员 nanobot 适配器需验证。不能把原型子集当作完整首版。
+
+## 运行原型
+
+使用 Node.js 24、pnpm 11，在仓库根目录执行：
+
+```sh
+pnpm install --frozen-lockfile
+pnpm test
+pnpm build
+pnpm preview:prototype
+```
+
+访问 <http://127.0.0.1:4173/>，仅使用独立测试数据。启动说明和限制见[原型说明](prototypes/risk-lab/README.md)，实际结果见[验证报告](docs/architecture/prototype-validation.md)。
 
 ## 资料
 
@@ -18,6 +31,8 @@
 - [Web 首版范围与离线边界](docs/requirements/web-first-release.md)
 - [整体架构与技术选型方案](docs/architecture/technical-design.md)
 - [技术验证与开发里程碑](docs/architecture/validation-and-milestones.md)
+- [M0 原型格式与接口契约](docs/architecture/prototype-contracts.md)
+- [M0 原型验证记录与剩余门槛](docs/architecture/prototype-validation.md)
 - [初始需求草图](docs/requirements/initial-idea.md)
 - [知识组织方式](docs/requirements/knowledge-organization.md)
 - [笔记双视图](docs/requirements/dual-view-notes.md)

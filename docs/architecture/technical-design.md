@@ -1,6 +1,6 @@
 # 整体架构与技术选型方案
 
-状态：2026-09-02 技术设计基线；用户已授权由实现方决定细节。本文没有对应的已安装依赖或业务代码，关键候选仍需通过原型验证。产品范围以 [Web 首版](../requirements/web-first-release.md)为准，验证见[验证与里程碑](./validation-and-milestones.md)。
+状态：2026-09-02 技术设计基线，2026-09-03 已增加独立本地风险原型；用户已授权由实现方决定细节。原型仅覆盖部分候选与场景，不代表整体架构已验证。产品范围以 [Web 首版](../requirements/web-first-release.md)为准，实际进度见[原型验证记录](./prototype-validation.md)，完整标准见[验证与里程碑](./validation-and-milestones.md)。
 
 ## 1. 决策摘要
 

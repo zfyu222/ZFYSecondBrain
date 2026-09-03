@@ -17,3 +17,11 @@ Thumbs.db
 *.log
 tmp/
 temp/
+
+# Prototype dependencies, builds and disposable data
+node_modules/
+dist/
+.prototype-data/
+coverage/
+playwright-report/
+test-results/
