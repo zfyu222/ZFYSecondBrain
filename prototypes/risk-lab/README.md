@@ -10,6 +10,7 @@
 pnpm install --frozen-lockfile
 pnpm test
 pnpm build
+pnpm check:build
 pnpm preview:prototype
 ```
 

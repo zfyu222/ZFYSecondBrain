@@ -5,6 +5,7 @@
   "scripts": {
     "dev:prototype": "pnpm --filter @zfy/risk-lab dev",
     "build": "pnpm --filter @zfy/risk-lab build",
+    "check:build": "pnpm --filter @zfy/risk-lab check:build",
     "test": "pnpm --filter @zfy/risk-lab test",
     "typecheck": "pnpm --filter @zfy/risk-lab typecheck",
     "preview:prototype": "pnpm --filter @zfy/risk-lab start"
