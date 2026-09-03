@@ -4,10 +4,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { FileStore } from "./store";
 import { registerVaultApi } from "./api";
+import { startLocalServer } from "./startup";
 
 const appRoot = fileURLToPath(new URL("..", import.meta.url));
 const store = new FileStore(path.join(appRoot, ".prototype-data", "server"));
-await store.init();
 const app = Fastify({ logger: false, bodyLimit: 12_000_000 });
 registerVaultApi(app, store);
 if (process.argv.includes("--production")) {
@@ -50,7 +50,7 @@ if (process.argv.includes("--production")) {
   });
   app.addHook("onClose", () => vite.close());
 }
-await app.listen({ host: "127.0.0.1", port: 4173 });
+await startLocalServer(app, () => store.init());
 console.log(
   "Local: http://127.0.0.1:4173/ — isolated risk prototype, not a production server",
 );
