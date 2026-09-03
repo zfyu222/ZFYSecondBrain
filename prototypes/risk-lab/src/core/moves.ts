@@ -1,5 +1,7 @@
 import { moveRecordSchema, type MoveRecord, type Snapshot } from "./contracts";
 import { moveNote } from "./paths";
+import { relocateAttachments, type Attachments } from "./attachments";
+import { validateContent } from "./contracts";
 
 export function moveSequence(snapshot: Snapshot | null) {
   return snapshot?.moves?.length ?? 0;
@@ -20,6 +22,7 @@ export function alignMoves(
   base: Snapshot | null,
   local: Record<string, string>,
   remote: Snapshot,
+  localAttachments: Attachments = {},
 ) {
   const known = base?.moves ?? [],
     all = remote.moves ?? [];
@@ -32,9 +35,14 @@ export function alignMoves(
     throw new Error("服务端移动记录缺失或与本机基线不同，停止同步并保留草稿");
   let baseFiles = { ...(base?.files ?? {}) },
     files = { ...local };
+  let baseAttachments = { ...(base?.attachments ?? {}) },
+    attachments = { ...localAttachments };
   for (const move of all.slice(known.length)) {
     const stem = move.from.slice(0, -3);
-    const localBundle = Object.keys(files).some(
+    const localBundle = [
+      ...Object.keys(files),
+      ...Object.keys(attachments),
+    ].some(
       (p) =>
         p === move.from ||
         [".opml", ".relations.yaml", ".note.yaml"].some(
@@ -49,16 +57,29 @@ export function alignMoves(
     const knownPaths = [
       ...Object.keys(baseFiles),
       ...Object.keys(files),
+      ...Object.keys(baseAttachments),
+      ...Object.keys(attachments),
       ...(move.paths ?? []),
     ];
-    baseFiles = moveNote(
+    const baseMoved = moveNote(
       baseFiles,
       move.from,
       move.to,
       false,
       knownPaths,
-    ).files;
-    files = moveNote(files, move.from, move.to, false, knownPaths).files;
+    );
+    const localMoved = moveNote(files, move.from, move.to, false, knownPaths);
+    baseFiles = baseMoved.files;
+    files = localMoved.files;
+    baseAttachments = relocateAttachments(baseAttachments, baseMoved.moves);
+    attachments = relocateAttachments(attachments, localMoved.moves);
+    if (
+      Object.keys(attachments).length ||
+      Object.keys(baseAttachments).length
+    ) {
+      validateContent(baseFiles, baseAttachments);
+      validateContent(files, attachments);
+    }
   }
-  return { baseFiles, files };
+  return { baseFiles, files, baseAttachments, attachments };
 }

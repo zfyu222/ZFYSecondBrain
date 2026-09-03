@@ -1,6 +1,13 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { conflictOptions } from "./core/merge";
+import {
+  attachmentChoiceKey,
+  attachmentSize,
+  attachmentLimits,
+  mediaTypes,
+} from "./core/attachments";
+import { downloadAttachment } from "./attachment-files";
 import { EditorBoundary } from "./EditorBoundary";
 import { observeOfflineStatus, offlineStatusText } from "./offline-status";
 import {
@@ -10,6 +17,7 @@ import {
   synchronize,
   hasUnsyncedChanges,
   type LocalState,
+  addAttachment,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
 import "./style.css";
@@ -209,6 +217,35 @@ function App() {
       setBusy(false);
     }
   }
+  async function importMedia(file: File) {
+    if (operationBusy.current || !rowRef.current) return;
+    operationBusy.current = true;
+    setBusy(true);
+    setError("");
+    const owner = active + ".md";
+    try {
+      if (file.size > attachmentLimits.single)
+        throw new Error("原型单附件限制 1 MB，请使用小型测试文件");
+      await writeQueue.current;
+      if (saveFailure.current) throw new Error("请先处理本机保存错误");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      accept(
+        await addAttachment(
+          db,
+          rowRef.current!.version,
+          owner,
+          file.name,
+          bytes,
+        ),
+      );
+      setMessage("附件和引用已保存本机 · 待同步");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      operationBusy.current = false;
+      setBusy(false);
+    }
+  }
   function newNote(kind: "markdown" | "map") {
     if (rowRef.current?.conflict || rowRef.current?.pendingMove) return;
     const stem = `raw/Inbox/随手记-${new Date()
@@ -372,6 +409,21 @@ function App() {
             <div className="markdown-grid">
               <section>
                 <div className="pane-label">原文 / SOURCE</div>
+                <label className="attachment-picker">
+                  添加图片、音视频或 PDF（原型 ≤ 1 MB）
+                  <input
+                    type="file"
+                    aria-label="添加本机附件"
+                    accept={Object.keys(mediaTypes)
+                      .map((ext) => "." + ext)
+                      .join(",")}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      event.currentTarget.value = "";
+                      if (file) void importMedia(file);
+                    }}
+                  />
+                </label>
                 <EditorBoundary key={active}>
                   <Suspense
                     fallback={
@@ -398,6 +450,7 @@ function App() {
                       source={files[active + ".md"]}
                       owner={active + ".md"}
                       files={files}
+                      attachments={row?.attachments}
                       onOpen={openLinkedNote}
                     />
                   </Suspense>
@@ -428,14 +481,18 @@ function App() {
             <h2>保留哪一版？</h2>
             <p>
               Markdown
-              只选择冲突片段，其余修改自动保留。导图与关系文件整组选择，不能混选。确认前自动保存双方恢复副本。
+              只选择冲突片段，其余修改自动保留。导图与关系文件整组选择；附件整文件二选一，不拼接二进制。确认前自动保存双方恢复副本。
             </p>
             <button
               onClick={() =>
                 download(
                   "冲突双方.json",
                   JSON.stringify(
-                    { local: row.files, conflict: row.conflict },
+                    {
+                      local: row.files,
+                      attachments: row.attachments,
+                      conflict: row.conflict,
+                    },
                     null,
                     2,
                   ),
@@ -476,6 +533,50 @@ function App() {
                 ))}
               </div>
             ))}
+            {(row.conflict.attachmentItems ?? []).map((item) => (
+              <div
+                className="conflict-item"
+                key={attachmentChoiceKey(item.path)}
+              >
+                <h3>{item.path} · 附件冲突</h3>
+                <div className="conflict-grid">
+                  {(["local", "remote"] as const).map((side) => (
+                    <label key={side}>
+                      <input
+                        type="radio"
+                        disabled={busy}
+                        name={attachmentChoiceKey(item.path)}
+                        checked={
+                          choices[attachmentChoiceKey(item.path)] === side
+                        }
+                        onChange={() =>
+                          setChoices({
+                            ...choices,
+                            [attachmentChoiceKey(item.path)]: side,
+                          })
+                        }
+                      />
+                      {side === "local" ? "保留本机" : "保留服务端"}
+                      <p>
+                        {item[side]
+                          ? `${attachmentSize(item[side]!)} 字节`
+                          : "（附件已删除）"}
+                      </p>
+                      {item[side] && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadAttachment(item.path, item[side]!)
+                          }
+                        >
+                          下载此版本检查
+                        </button>
+                      )}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
             <button
               className="primary"
               disabled={busy}
@@ -489,7 +590,7 @@ function App() {
           <details>
             <summary>验证工具与原始文件</summary>
             <p>
-              当前原型只验证文本文件；不是正式 NAS
+              当前原型验证文本和受限二进制附件；不是正式 NAS
               服务。模拟断网仅暂停同步，真正断网刷新请使用构建后的预览。
             </p>
             <div className="tool-row">
@@ -507,12 +608,30 @@ function App() {
                 onClick={() =>
                   download(
                     "原型全部草稿.json",
-                    JSON.stringify(filesRef.current, null, 2),
+                    JSON.stringify(
+                      {
+                        protocolVersion: 2,
+                        files: filesRef.current,
+                        attachments: rowRef.current?.attachments ?? {},
+                      },
+                      null,
+                      2,
+                    ),
                   )
                 }
               >
                 应急导出全部草稿
               </button>
+              {Object.entries(row?.attachments ?? {})
+                .filter(([path]) => path.startsWith(active + ".assets/"))
+                .map(([path, value]) => (
+                  <button
+                    key={path}
+                    onClick={() => downloadAttachment(path, value)}
+                  >
+                    下载 {path.split("/").pop()}
+                  </button>
+                ))}
               <button
                 onClick={() =>
                   void db.recovery

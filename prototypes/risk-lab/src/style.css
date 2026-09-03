@@ -476,6 +476,34 @@ h1 {
   font-size: 0.875rem;
   margin-bottom: 0.75rem;
 }
+.attachment-picker {
+  display: block;
+  padding: 10px 16px;
+  font-size: 12px;
+  color: #55665d;
+}
+.attachment-picker input {
+  display: block;
+  max-width: 100%;
+  margin-top: 6px;
+}
+.attachment-media {
+  display: inline-flex;
+  flex-direction: column;
+  max-width: 100%;
+  gap: 6px;
+  vertical-align: top;
+}
+.attachment-media img,
+.attachment-media video {
+  display: block;
+  max-width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+}
+.attachment-media audio {
+  max-width: 100%;
+}
 .markdown-reading .embed-unavailable {
   color: #806b47;
   overflow-wrap: anywhere;

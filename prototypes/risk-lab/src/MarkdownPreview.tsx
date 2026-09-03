@@ -4,6 +4,8 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import { remarkDocumentEmbeds } from "./core/embeds";
+import { AttachmentMedia } from "./AttachmentMedia";
+import type { Attachments } from "./core/attachments";
 import {
   inspectMarkdown,
   previewRemarkPlugins,
@@ -19,6 +21,7 @@ const previewSchema = {
     ...defaultSchema.attributes,
     code: [["className", "math-inline", "math-display", /^language-./]],
     a: [...(defaultSchema.attributes?.a ?? []), "dataNoteOwner"],
+    img: [...(defaultSchema.attributes?.img ?? []), "dataNoteOwner"],
     section: [
       ["className", "note-embed", "footnotes"],
       ...(defaultSchema.attributes?.section ?? []).filter(
@@ -59,13 +62,22 @@ export function MarkdownPreview({
   source,
   owner,
   files,
+  attachments = {},
   onOpen,
 }: {
   source: string;
   owner: string;
   files: Record<string, string>;
+  attachments?: Attachments;
   onOpen: (path: string, heading?: string) => void;
 }) {
+  const linkFiles = useMemo(
+    () => ({
+      ...files,
+      ...Object.fromEntries(Object.keys(attachments).map((path) => [path, ""])),
+    }),
+    [files, attachments],
+  );
   const inspected = useMemo(() => {
     try {
       return { ...inspectMarkdown(source), error: "" };
@@ -101,7 +113,7 @@ export function MarkdownPreview({
       <ReactMarkdown
         remarkPlugins={[
           ...previewRemarkPlugins,
-          [remarkDocumentEmbeds, { owner, files }],
+          [remarkDocumentEmbeds, { owner, files: linkFiles, attachments }],
         ]}
         remarkRehypeOptions={{ clobberPrefix: "" }}
         rehypePlugins={[
@@ -128,13 +140,25 @@ export function MarkdownPreview({
                 Object.hasOwn(files, linkedOwner)
                 ? linkedOwner
                 : owner,
-              files,
+              linkFiles,
             );
             if (link.kind === "external")
               return (
                 <a href={link.href} target="_blank" rel="noopener noreferrer">
                   {children}
                 </a>
+              );
+            if (
+              link.kind === "attachment" &&
+              Object.hasOwn(attachments, link.path)
+            )
+              return (
+                <AttachmentMedia
+                  path={link.path}
+                  value={attachments[link.path]}
+                  label={children}
+                  downloadOnly
+                />
               );
             if (link.kind !== "note") {
               const reason =
@@ -184,11 +208,32 @@ export function MarkdownPreview({
               </button>
             );
           },
-          img: ({ alt, src }) => (
-            <span className="media-placeholder">
-              [图片：{alt || src || "未知路径"} · 原型暂不加载附件]
-            </span>
-          ),
+          img: ({ alt, src, node }) => {
+            const origin = node?.properties.dataNoteOwner;
+            const link = resolveNoteLink(
+              src ?? "",
+              typeof origin === "string" && Object.hasOwn(files, origin)
+                ? origin
+                : owner,
+              linkFiles,
+            );
+            if (
+              link.kind === "attachment" &&
+              Object.hasOwn(attachments, link.path)
+            )
+              return (
+                <AttachmentMedia
+                  path={link.path}
+                  value={attachments[link.path]}
+                  label={alt || link.path}
+                />
+              );
+            return (
+              <span className="media-placeholder">
+                [图片：{alt || src || "未知路径"} · 原型暂不加载附件]
+              </span>
+            );
+          },
         }}
       >
         {source}

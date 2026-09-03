@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { FileStore } from "./store";
 import { ledgerSchema } from "./journal";
-import { validateFiles } from "../src/core/contracts";
+import { validateContent } from "../src/core/contracts";
 import { noLinkedAncestors } from "./safe-path";
 
 export const backupScopes = {
@@ -95,7 +95,9 @@ export async function restorePrototype(
   if (await stat(marker)) {
     if (
       (await fs.lstat(marker)).isSymbolicLink() ||
-      (await fs.readFile(marker, "utf8")) !== "risk-lab-v1"
+      !["risk-lab-v1", "risk-lab-v2"].includes(
+        await fs.readFile(marker, "utf8"),
+      )
     )
       throw new Error("未知原型备份版本");
   }
@@ -167,7 +169,7 @@ export async function restorePrototype(
   ));
   const restored = new FileStore(target);
   const snapshot = await restored.snapshot(); // Recover only the new copy, never the source.
-  validateFiles(snapshot.files);
+  validateContent(snapshot.files, snapshot.attachments);
   if (
     (await inventory(target, ["raw", "derived"])).some((entry) =>
       entry.relative.endsWith(".risk-tmp"),
@@ -188,7 +190,7 @@ export async function restorePrototype(
     sync: "disconnected",
     ai: "disabled",
     warnings: [
-      "仅验证当前 UTF-8 原型格式；不证明真实附件、历史或配置语义兼容。",
+      "仅验证当前 UTF-8 原文和受限 .assets 二进制副本；不证明媒体解码、历史或配置语义兼容。",
       "没有外部文件清单，无法判断源是否遗漏文件；备份前必须暂停写入或使用一致性快照。",
       "未复制的数据不能精确重建；恢复副本没有接入原服务，重新配对流程尚未实现。",
     ],
@@ -198,9 +200,17 @@ export async function restorePrototype(
     JSON.stringify(report, null, 2),
     { flag: "wx" },
   );
-  await fs.writeFile(path.join(target, ".risk-lab"), "risk-lab-v1", {
-    flag: "wx",
-  });
+  await fs.writeFile(
+    path.join(target, ".risk-lab"),
+    snapshot.attachments ||
+      ((await stat(marker)) &&
+        (await fs.readFile(marker, "utf8")) === "risk-lab-v2")
+      ? "risk-lab-v2"
+      : "risk-lab-v1",
+    {
+      flag: "wx",
+    },
+  );
   await fs.unlink(incomplete);
   return report;
 }

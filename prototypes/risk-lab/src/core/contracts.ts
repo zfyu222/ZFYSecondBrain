@@ -1,5 +1,12 @@
 import { z } from "zod";
 import {
+  attachmentSchema,
+  attachmentLimits,
+  attachmentSize,
+  isAttachmentPath,
+  type Attachments,
+} from "./attachments";
+import {
   parseOpml,
   parseRelations,
   relationsSchema,
@@ -35,12 +42,28 @@ export const filesSchema = z
       Object.values(v).reduce((sum, t) => sum + t.length, 0) <= 5_000_000,
     "原型提交过大",
   );
+export const attachmentsSchema = z
+  .record(
+    pathSchema.refine(isAttachmentPath, "附件必须使用受支持的 .assets 路径"),
+    attachmentSchema,
+  )
+  .refine(
+    (files) =>
+      Object.keys(files).length <= attachmentLimits.count &&
+      Object.values(files).reduce(
+        (sum, item) => sum + attachmentSize(item),
+        0,
+      ) <= attachmentLimits.total,
+    "附件超过原型数量或总量限制",
+  );
 export const changeSchema = z
   .object({
     requestId: z.string().min(8).max(100),
     expectedRevision: z.string().nullable(),
     moveSequence: z.number().int().nonnegative().optional(),
     files: filesSchema,
+    protocolVersion: z.literal(2).optional(),
+    attachments: attachmentsSchema.optional(),
   })
   .strict();
 export type Change = z.infer<typeof changeSchema>;
@@ -58,6 +81,8 @@ export type Snapshot = {
   revision: string;
   files: Record<string, string>;
   moves?: MoveRecord[];
+  protocolVersion?: 2;
+  attachments?: Attachments;
 };
 export const moveSchema = z
   .object({
@@ -65,8 +90,34 @@ export const moveSchema = z
     expectedRevision: z.string(),
     from: pathSchema,
     to: pathSchema,
+    protocolVersion: z.literal(2).optional(),
   })
   .strict();
+export const snapshotPayloadSchema = z
+  .object({
+    revision: z.string(),
+    files: filesSchema,
+    moves: z.array(moveRecordSchema).optional(),
+    protocolVersion: z.literal(2).optional(),
+    attachments: attachmentsSchema.optional(),
+  })
+  .strict();
+export function validateContent(
+  files: Record<string, string>,
+  attachments: Attachments = {},
+) {
+  validateFiles(files);
+  attachmentsSchema.parse(attachments);
+  if (Object.keys(attachments).some((p) => Object.hasOwn(files, p)))
+    throw new Error("文本与附件路径重叠");
+  if (Object.keys(files).some(isAttachmentPath))
+    throw new Error("二进制附件不能按文本提交");
+  // Reuse the cross-platform path collision boundary across both namespaces.
+  validateFiles({
+    ...files,
+    ...Object.fromEntries(Object.keys(attachments).map((p) => [p, ""])),
+  });
+}
 export function validateFiles(files: Record<string, string>) {
   filesSchema.parse(files);
   const allPaths = Object.keys(files).map((p) =>

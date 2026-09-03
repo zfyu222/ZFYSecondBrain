@@ -1,5 +1,6 @@
 import type { Plugin } from "unified";
 import type { Root } from "mdast";
+import { attachmentSize, type Attachments } from "./attachments";
 import {
   limitMathNodes,
   parsePreview,
@@ -13,7 +14,53 @@ export const embedLimits = {
   count: 24,
   characters: 200_000,
 } as const;
-type Options = { owner: string; files: Record<string, string> };
+type Options = {
+  owner: string;
+  files: Record<string, string>;
+  attachments?: Attachments;
+};
+
+function limitMedia(root: PreviewNode, options: Options) {
+  const definitions = new Map<string, string>();
+  const collect = (node: PreviewNode) => {
+    if (node.type === "definition" && node.identifier && node.url)
+      definitions.set(node.identifier.toUpperCase(), node.url);
+    node.children?.forEach(collect);
+  };
+  collect(root);
+  let count = 0,
+    bytes = 0;
+  const walk = (node: PreviewNode) => {
+    const target =
+      node.type === "image"
+        ? node.url
+        : node.type === "imageReference"
+          ? definitions.get(node.identifier?.toUpperCase() ?? "")
+          : node.type === "embed"
+            ? node.value
+            : undefined;
+    if (target) {
+      const origin = node.data?.hProperties?.dataNoteOwner;
+      const link = resolveNoteLink(
+        target,
+        typeof origin === "string" ? origin : options.owner,
+        options.files,
+      );
+      if (link.kind === "attachment" && options.attachments?.[link.path]) {
+        count++;
+        bytes += attachmentSize(options.attachments[link.path]);
+        if (count > 24 || bytes > 8_000_000) {
+          node.type = "text";
+          node.value = `[附件：${target} · 媒体预览超过上限，请打开原文或下载]`;
+          delete node.data;
+          delete node.children;
+        }
+      }
+    }
+    node.children?.forEach(walk);
+  };
+  walk(root);
+}
 
 /** Select AST siblings, not reprinted Markdown, preserving inline syntax and links. */
 export function selectSection(tree: PreviewNode, heading?: string) {
@@ -60,7 +107,11 @@ export function selectSection(tree: PreviewNode, heading?: string) {
 }
 
 function markOrigin(node: PreviewNode, owner: string, prefix: string) {
-  if (["link", "linkReference", "wikiLink"].includes(node.type)) {
+  if (
+    ["link", "linkReference", "wikiLink", "image", "imageReference"].includes(
+      node.type,
+    )
+  ) {
     node.data ??= {};
     node.data.hProperties = { ...node.data.hProperties, dataNoteOwner: owner };
   }
@@ -111,6 +162,17 @@ export const remarkDocumentEmbeds: Plugin<[Options], Root> =
           if (count >= embedLimits.count)
             return failure(target, "嵌入数量超过预览上限，请打开原文");
           const link = resolveNoteLink(target, owner, options.files);
+          if (link.kind === "attachment") {
+            embed.data = {
+              hName: "img",
+              hProperties: {
+                src: target,
+                alt: embed.data?.alias ?? target,
+                dataNoteOwner: owner,
+              },
+            };
+            return node;
+          }
           if (link.kind !== "note" || !link.path.endsWith(".md"))
             return failure(
               target,
@@ -178,6 +240,20 @@ export const remarkDocumentEmbeds: Plugin<[Options], Root> =
           }
         }
         if (node.type === "embed") {
+          if (
+            resolveNoteLink(node.value ?? "", owner, options.files).kind ===
+            "attachment"
+          ) {
+            node.data = {
+              hName: "img",
+              hProperties: {
+                src: node.value,
+                alt: node.data?.alias ?? node.value,
+                dataNoteOwner: owner,
+              },
+            };
+            return node;
+          }
           // Inline embeds remain links: inserting a block document inside a sentence
           // would create invalid paragraph markup and obscure the sentence itself.
           node.data = {
@@ -204,4 +280,5 @@ export const remarkDocumentEmbeds: Plugin<[Options], Root> =
       0,
     );
     limitMathNodes(tree);
+    limitMedia(tree, options);
   };

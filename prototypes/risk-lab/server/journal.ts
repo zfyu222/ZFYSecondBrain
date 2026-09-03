@@ -1,41 +1,31 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
-  filesSchema,
-  moveRecordSchema,
   validateFiles,
+  validateContent,
+  snapshotPayloadSchema,
   type Snapshot,
 } from "../src/core/contracts";
 import { validateMoves } from "../src/core/moves";
+import { snapshotRevision } from "./snapshot";
 
-const snapshotShape = z
-  .object({
-    revision: z.string(),
-    files: filesSchema,
-    moves: z.array(moveRecordSchema).optional(),
-  })
-  .strict();
 // Existing v1 hashes include JSON property order in files and move records. Validate
 // without replacing the original object with Zod's reordered representation.
 const snapshotSchema = z.unknown().transform((input, ctx): Snapshot => {
-  const parsed = snapshotShape.safeParse(input);
+  const parsed = snapshotPayloadSchema.safeParse(input);
   if (!parsed.success) {
     ctx.addIssue({ code: "custom", message: parsed.error.message });
     return z.NEVER;
   }
   const snapshot = input as Snapshot;
   try {
-    validateFiles(snapshot.files);
+    if (snapshot.attachments !== undefined) {
+      if (snapshot.protocolVersion !== 2) throw new Error("附件缺少协议版本");
+      validateContent(snapshot.files, snapshot.attachments);
+    } else validateFiles(snapshot.files);
     validateMoves(snapshot.moves ?? []);
     // A backup can have been produced under a different locale/ICU collation.
     // Verify the stored representation, not a newly locale-sorted representation.
-    const files = snapshot.files;
-    const data = snapshot.moves?.length
-      ? { files, moves: snapshot.moves }
-      : files;
-    const revision = createHash("sha256")
-      .update(JSON.stringify(data))
-      .digest("hex");
+    const revision = snapshotRevision(snapshot);
     if (snapshot.revision !== revision) throw new Error("快照校验值不一致");
   } catch (error) {
     ctx.addIssue({ code: "custom", message: String(error) });
@@ -66,11 +56,17 @@ export const ledgerSchema = z.unknown().transform((input, ctx): Ledger => {
 });
 export const journalSchema = z
   .object({
-    version: z.literal(1),
+    version: z.union([z.literal(1), z.literal(2)]),
     status: z.enum(["prepared", "committed"]),
     before: snapshotSchema,
     after: snapshotSchema,
     ledgerBefore: ledgerSchema,
     ledgerAfter: ledgerSchema,
   })
-  .strict();
+  .strict()
+  .refine(
+    (journal) =>
+      journal.version === 2 ||
+      (!journal.before.attachments && !journal.after.attachments),
+    "旧事务不能包含二进制附件",
+  );

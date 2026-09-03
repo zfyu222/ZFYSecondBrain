@@ -5,14 +5,24 @@ import {
   type Snapshot,
   type Change,
   type MoveRecord,
-  validateFiles,
   pathSchema,
+  validateContent,
 } from "../src/core/contracts";
 import { moveNote } from "../src/core/paths";
 import { sampleFiles } from "../src/core/seed";
 import { validateMoves } from "../src/core/moves";
 import { journalSchema, ledgerSchema, type Ledger } from "./journal";
 import { noLinkedAncestors, noLinkedFile } from "./safe-path";
+import {
+  encodeAttachment,
+  decodeAttachment,
+  sameAttachment,
+  isAttachmentPath,
+  attachmentLimits,
+  relocateAttachments,
+  type Attachments,
+} from "../src/core/attachments";
+import { snapshotRevision } from "./snapshot";
 
 const digest = (data: unknown) =>
   createHash("sha256").update(JSON.stringify(data)).digest("hex");
@@ -131,7 +141,11 @@ export class FileStore {
     const marker = path.join(this.root, ".risk-lab");
     try {
       await noLinkedFile(marker);
-      if ((await fs.readFile(marker, "utf8")) !== "risk-lab-v1")
+      if (
+        !["risk-lab-v1", "risk-lab-v2"].includes(
+          await fs.readFile(marker, "utf8"),
+        )
+      )
         throw new Error("未知原型目录");
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
@@ -148,8 +162,12 @@ export class FileStore {
     await this.recover();
     await this.ledger();
     const snapshot = await this.readUnsafe();
-    validateFiles(snapshot.files);
-    if (seed && !Object.keys(snapshot.files).length)
+    validateContent(snapshot.files, snapshot.attachments);
+    if (
+      seed &&
+      !Object.keys(snapshot.files).length &&
+      !Object.keys(snapshot.attachments ?? {}).length
+    )
       await this.commit({
         requestId: "initial-seed-v1",
         expectedRevision: snapshot.revision,
@@ -159,6 +177,8 @@ export class FileStore {
   }
   private async readUnsafe(): Promise<Snapshot> {
     const files: Record<string, string> = {};
+    const attachments: Attachments = {};
+    let attachmentBytes = 0;
     const walk = async (prefix: string) => {
       for (const item of await fs.readdir(path.join(this.root, prefix), {
         withFileTypes: true,
@@ -168,7 +188,21 @@ export class FileStore {
         if (item.isDirectory()) await walk(rel);
         else if (item.isFile()) {
           if (item.name.endsWith(".risk-tmp")) continue;
-          const bytes = await fs.readFile(await this.safePath(rel));
+          const absolute = await this.safePath(rel);
+          await noLinkedFile(absolute);
+          if (isAttachmentPath(rel)) {
+            const info = await fs.stat(absolute);
+            attachmentBytes += info.size;
+            if (
+              info.size > attachmentLimits.single ||
+              attachmentBytes > attachmentLimits.total ||
+              Object.keys(attachments).length >= attachmentLimits.count
+            )
+              throw new Error("附件超过原型限制，未修改原文件");
+            attachments[rel] = encodeAttachment(await fs.readFile(absolute));
+            continue;
+          }
+          const bytes = await fs.readFile(absolute);
           const decoded = new TextDecoder("utf-8", { fatal: true }).decode(
             bytes,
           );
@@ -182,13 +216,21 @@ export class FileStore {
       Object.entries(files).sort(([a], [b]) => a.localeCompare(b)),
     );
     const moves = await this.movements();
-    return {
-      revision: moves.length
-        ? digest({ files: sorted, moves })
-        : digest(sorted),
+    const content = {
       files: sorted,
       moves,
+      ...(Object.keys(attachments).length
+        ? {
+            protocolVersion: 2 as const,
+            attachments: Object.fromEntries(
+              Object.entries(attachments).sort(([a], [b]) =>
+                a.localeCompare(b),
+              ),
+            ),
+          }
+        : {}),
     };
+    return { revision: snapshotRevision(content), ...content };
   }
   snapshot() {
     return this.exclusive(async () => {
@@ -197,24 +239,40 @@ export class FileStore {
     });
   }
   private async apply(
-    files: Record<string, string>,
-    current: Record<string, string>,
+    next: Pick<Snapshot, "files" | "attachments">,
+    previous: Pick<Snapshot, "files" | "attachments">,
     inject = false,
   ) {
     let writes = 0;
+    const files = next.files,
+      current = previous.files;
+    const attachments = next.attachments ?? {},
+      oldAttachments = previous.attachments ?? {};
     for (const rel of [
-      ...new Set([...Object.keys(current), ...Object.keys(files)]),
+      ...new Set([
+        ...Object.keys(current),
+        ...Object.keys(files),
+        ...Object.keys(attachments),
+        ...Object.keys(oldAttachments),
+      ]),
     ].sort()) {
-      if (current[rel] === files[rel]) continue;
+      if (
+        current[rel] === files[rel] &&
+        sameAttachment(attachments[rel], oldAttachments[rel])
+      )
+        continue;
       const dest = await this.safePath(rel);
-      if (!(rel in files)) await fs.unlink(dest);
+      await noLinkedFile(dest);
+      if (!(rel in files) && !(rel in attachments)) await fs.unlink(dest);
       else {
         await fs.mkdir(path.dirname(dest), { recursive: true });
         const temp = `${dest}.risk-tmp`;
         await noLinkedFile(temp);
         const handle = await fs.open(temp, "w");
         try {
-          await handle.writeFile(files[rel]);
+          await handle.writeFile(
+            attachments[rel] ? decodeAttachment(attachments[rel]) : files[rel],
+          );
           await handle.sync();
         } finally {
           await handle.close();
@@ -237,7 +295,6 @@ export class FileStore {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return;
       throw e;
     }
-    if (journal.version !== 1) throw new Error("未知事务日志");
     const current = await this.readUnsafe();
     const movementState = JSON.stringify(current.moves ?? []);
     if (
@@ -256,11 +313,25 @@ export class FileStore {
       )
         throw new Error("恢复期间发现外部修改，保留现场并停止");
     }
+    for (const rel of new Set([
+      ...Object.keys(current.attachments ?? {}),
+      ...Object.keys(journal.before.attachments ?? {}),
+      ...Object.keys(journal.after.attachments ?? {}),
+    ])) {
+      if (
+        !sameAttachment(
+          current.attachments?.[rel],
+          journal.before.attachments?.[rel],
+        ) &&
+        !sameAttachment(
+          current.attachments?.[rel],
+          journal.after.attachments?.[rel],
+        )
+      )
+        throw new Error("恢复期间发现外部附件修改，保留现场并停止");
+    }
     const committed = journal.status === "committed";
-    await this.apply(
-      committed ? journal.after.files : journal.before.files,
-      current.files,
-    );
+    await this.apply(committed ? journal.after : journal.before, current);
     await this.atomicJson(
       "ledger.json",
       committed ? journal.ledgerAfter : journal.ledgerBefore,
@@ -278,8 +349,13 @@ export class FileStore {
   ): Promise<Snapshot> {
     await this.recover();
     try {
-      validateFiles(change.files);
-      for (const relative of Object.keys(change.files))
+      validateContent(change.files, change.attachments);
+      if (change.attachments !== undefined && change.protocolVersion !== 2)
+        throw new Error("附件需要新版协议");
+      for (const relative of [
+        ...Object.keys(change.files),
+        ...Object.keys(change.attachments ?? {}),
+      ])
         await this.safePath(relative);
     } catch (e) {
       throw new RejectedError(String(e));
@@ -291,11 +367,22 @@ export class FileStore {
       return ledgerBefore[change.requestId].result;
     }
     const before = await this.readUnsafe();
+    if (
+      before.attachments &&
+      (change.protocolVersion !== 2 || change.attachments === undefined)
+    )
+      throw new RejectedError(
+        "当前知识库有附件，请升级客户端；旧文本快照不能覆盖附件",
+      );
     if ((change.moveSequence ?? 0) !== (before.moves?.length ?? 0))
       throw new ConflictError(before);
     if (
       before.revision !== change.expectedRevision &&
-      !(change.expectedRevision === null && !Object.keys(before.files).length)
+      !(
+        change.expectedRevision === null &&
+        !Object.keys(before.files).length &&
+        !Object.keys(before.attachments ?? {}).length
+      )
     )
       throw new ConflictError(before);
     const sorted = Object.fromEntries(
@@ -308,33 +395,46 @@ export class FileStore {
         ...movement,
         at: new Date().toISOString(),
       });
-    const after: Snapshot = {
+    const content = {
       files: sorted,
-      revision: moves.length
-        ? digest({ files: sorted, moves })
-        : digest(sorted),
       moves,
+      ...(Object.keys(change.attachments ?? {}).length
+        ? {
+            protocolVersion: 2 as const,
+            attachments: Object.fromEntries(
+              Object.entries(change.attachments!).sort(([a], [b]) =>
+                a.localeCompare(b),
+              ),
+            ),
+          }
+        : {}),
     };
+    const after: Snapshot = { ...content, revision: snapshotRevision(content) };
     const ledgerAfter = {
       ...ledgerBefore,
       [change.requestId]: { fingerprint, result: after },
     };
     const journal: Journal = {
-      version: 1,
+      version: before.attachments || after.attachments ? 2 : 1,
       status: "prepared",
       before,
       after,
       ledgerBefore,
       ledgerAfter,
     };
+    if (journal.version === 2) await this.upgradeMarker();
     await this.atomicJson("journal.json", journal);
     this.fail("prepared");
     // Detect observed external edits before touching originals. This is not an OS lock.
     if ((await this.readUnsafe()).revision !== before.revision)
       throw new Error("提交前发现外部修改");
-    await this.apply(after.files, before.files, true);
+    await this.apply(after, before, true);
     this.fail("files");
-    if (digest((await this.readUnsafe()).files) !== digest(after.files))
+    const written = await this.readUnsafe();
+    if (
+      digest(written.files) !== digest(after.files) ||
+      digest(written.attachments ?? {}) !== digest(after.attachments ?? {})
+    )
       throw new Error("落盘内容与提交不一致，停止并保留恢复日志");
     await this.atomicJson("ledger.json", ledgerAfter);
     this.fail("ledger");
@@ -348,11 +448,30 @@ export class FileStore {
   commit(change: Change) {
     return this.exclusive(() => this.commitUnsafe(change));
   }
+  private async upgradeMarker() {
+    const marker = path.join(this.root, ".risk-lab");
+    await noLinkedFile(marker);
+    const version = await fs.readFile(marker, "utf8");
+    if (version === "risk-lab-v2") return;
+    if (version !== "risk-lab-v1")
+      throw new Error("原型目录标记已变化，停止升级");
+    const temp = path.join(this.root, "state", "marker-v2.tmp");
+    await noLinkedFile(temp);
+    const handle = await fs.open(temp, "w");
+    try {
+      await handle.writeFile("risk-lab-v2");
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await fs.rename(temp, marker);
+  }
   move(input: {
     requestId: string;
     expectedRevision: string;
     from: string;
     to: string;
+    protocolVersion?: 2;
   }) {
     return this.exclusive(async () => {
       await this.recover();
@@ -367,11 +486,24 @@ export class FileStore {
         return previous.result;
       }
       const before = await this.readUnsafe();
+      if (before.attachments && input.protocolVersion !== 2)
+        throw new RejectedError("当前知识库有附件，请升级客户端后移动");
       if (before.revision !== input.expectedRevision)
         throw new ConflictError(before);
-      let moved;
+      let moved, movedAttachments: Attachments;
       try {
-        moved = moveNote(before.files, input.from, input.to);
+        moved = moveNote(
+          before.files,
+          input.from,
+          input.to,
+          true,
+          Object.keys(before.attachments ?? {}),
+        );
+        movedAttachments = relocateAttachments(
+          before.attachments ?? {},
+          moved.moves,
+        );
+        validateContent(moved.files, movedAttachments);
       } catch (e) {
         throw new RejectedError(String(e));
       }
@@ -381,12 +513,18 @@ export class FileStore {
           expectedRevision: input.expectedRevision,
           moveSequence: before.moves?.length ?? 0,
           files: moved.files,
+          ...(before.attachments
+            ? { protocolVersion: 2 as const, attachments: movedAttachments }
+            : {}),
         },
         fingerprint,
         {
           from: input.from,
           to: input.to,
-          paths: Object.keys(before.files).filter((p) => p in moved.moves),
+          paths: [
+            ...Object.keys(before.files),
+            ...Object.keys(before.attachments ?? {}),
+          ].filter((p) => p in moved.moves),
         },
       );
     });
