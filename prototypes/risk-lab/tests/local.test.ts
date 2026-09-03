@@ -7,6 +7,7 @@ import {
   recentDocuments,
   rememberRecent,
   restoreEmergencyExport,
+  saveFilesWithHistory,
   resolveConflicts,
   synchronize,
 } from "../src/local";
@@ -41,6 +42,33 @@ describe("local persistence and sync queue", () => {
     db.close();
     await db.open();
     expect((await db.read()).files[p]).toBe("offline");
+  });
+  it("keeps a coarse pre-edit Markdown history point at most every 30 minutes", async () => {
+    const db = await fixture();
+    const first = await saveFilesWithHistory(
+      db,
+      (await db.read()).version,
+      { [p]: "first" },
+      "2026-09-04T00:00:00.000Z",
+    );
+    const second = await saveFilesWithHistory(
+      db,
+      first.version,
+      { [p]: "second" },
+      "2026-09-04T00:10:00.000Z",
+    );
+    const third = await saveFilesWithHistory(
+      db,
+      second.version,
+      { [p]: "third" },
+      "2026-09-04T00:31:00.000Z",
+    );
+    expect(
+      (await db.history.toArray())
+        .sort((a, b) => a.at.localeCompare(b.at))
+        .map((item) => item.content),
+    ).toEqual(["base", "second"]);
+    expect(third.files[p]).toBe("third");
   });
   it("records readable recent document paths in newest-first order", async () => {
     const db = await fixture();

@@ -54,6 +54,12 @@ export type LocalState = {
   } | null;
 };
 type Recovery = { id: string; at: string; state: LocalState };
+export type HistoryPoint = {
+  id: string;
+  path: string;
+  at: string;
+  content: string;
+};
 const emergencyExportSchema = z
   .object({
     protocolVersion: z.literal(2),
@@ -70,11 +76,17 @@ export function readEmergencyExport(input: unknown) {
 export class LocalVault extends Dexie {
   vault!: Table<LocalState, string>;
   recovery!: Table<Recovery, string>;
+  history!: Table<HistoryPoint, string>;
   constructor(name = "zfy-risk-lab-v1") {
     super(name);
     this.version(1).stores({ vault: "id" });
     this.version(2).stores({ vault: "id", recovery: "id,at" });
     this.version(3).stores({ vault: "id", recovery: "id,at" });
+    this.version(4).stores({
+      vault: "id",
+      recovery: "id,at",
+      history: "id,path,at",
+    });
   }
   async read() {
     return this.transaction("rw", this.vault, this.recovery, async () => {
@@ -135,6 +147,32 @@ export class LocalVault extends Dexie {
       return next;
     });
   }
+}
+
+export async function saveFilesWithHistory(
+  db: LocalVault,
+  expected: number,
+  files: Record<string, string>,
+  at = new Date().toISOString(),
+) {
+  return db.transaction("rw", db.vault, db.history, async () => {
+    const row = await db.vault.get("vault");
+    if (!row || row.version !== expected)
+      throw new Error(
+        "另一个标签页已修改本机数据。当前草稿仍在编辑器，可先导出，再重新载入。",
+      );
+    for (const [path, content] of Object.entries(row.files)) {
+      if (files[path] === content || !path.endsWith(".md")) continue;
+      const prior = (
+        await db.history.where("path").equals(path).toArray()
+      ).sort((a, b) => b.at.localeCompare(a.at))[0];
+      if (!prior || Date.parse(at) - Date.parse(prior.at) >= 30 * 60_000)
+        await db.history.add({ id: crypto.randomUUID(), path, at, content });
+    }
+    const next = { ...structuredClone(row), files, version: row.version + 1 };
+    await db.vault.put(next);
+    return next;
+  });
 }
 
 export async function restoreEmergencyExport(

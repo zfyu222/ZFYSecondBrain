@@ -20,6 +20,7 @@ import {
   addAttachment,
   recentDocuments,
   rememberRecent,
+  saveFilesWithHistory,
   restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
@@ -151,10 +152,11 @@ function App() {
     writeQueue.current = writeQueue.current
       .then(async () => {
         if (!rowRef.current) return;
-        const saved = await db.update(rowRef.current.version, (r) => ({
-          ...r,
-          files: nextFiles,
-        }));
+        const saved = await saveFilesWithHistory(
+          db,
+          rowRef.current.version,
+          nextFiles,
+        );
         rowRef.current = saved;
         setRow(saved);
         setMessage("已保存本机 · 待同步");
