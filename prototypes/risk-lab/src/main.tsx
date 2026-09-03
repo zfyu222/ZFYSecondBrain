@@ -36,6 +36,7 @@ import {
   setFavorite,
   setNoteTags,
 } from "./core/note-metadata";
+import { matchesNoteSearch } from "./core/search";
 import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
@@ -466,26 +467,13 @@ function App() {
     ? recentDocuments(row).filter((path) => notes.includes(path))
     : [];
   const editingLocked = busy || !!row?.conflict || !!row?.pendingMove;
-  const matchesSearch = (stem: string) => {
-    const markdown = files[stem + ".md"] ?? "";
-    if (
-      query.trim() &&
-      !includeArchive &&
-      stem.startsWith("raw/Archive/")
-    )
-      return false;
-    const requestedTag = query.trim().startsWith("#")
-      ? query.trim().slice(1).toLocaleLowerCase("en-US")
-      : "";
-    if (!requestedTag) return (stem + markdown).includes(query);
-    try {
-      return noteTags(markdown).some(
-        (tag) => tag.toLocaleLowerCase("en-US") === requestedTag,
-      );
-    } catch {
-      return false;
-    }
-  };
+  const matchesSearch = (stem: string) =>
+    matchesNoteSearch(
+      stem,
+      files[stem + ".md"] ?? "",
+      query,
+      includeArchive,
+    );
   const matchesSpace = (stem: string) =>
     space === "all" || stem.startsWith(`raw/${space}/`);
   const visibleNotes = notes.filter(matchesSpace).filter(matchesSearch);
