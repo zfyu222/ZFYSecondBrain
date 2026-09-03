@@ -23,7 +23,7 @@ import {
   restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
-import { isFavorite, setFavorite } from "./core/note-metadata";
+import { isFavorite, noteTags, setFavorite } from "./core/note-metadata";
 import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
@@ -346,6 +346,20 @@ function App() {
     ? recentDocuments(row).filter((path) => notes.includes(path))
     : [];
   const editingLocked = busy || !!row?.conflict || !!row?.pendingMove;
+  const matchesSearch = (stem: string) => {
+    const markdown = files[stem + ".md"] ?? "";
+    const requestedTag = query.trim().startsWith("#")
+      ? query.trim().slice(1).toLocaleLowerCase("en-US")
+      : "";
+    if (!requestedTag) return (stem + markdown).includes(query);
+    try {
+      return noteTags(markdown).some(
+        (tag) => tag.toLocaleLowerCase("en-US") === requestedTag,
+      );
+    } catch {
+      return false;
+    }
+  };
   useEffect(() => {
     setChoices({});
   }, [row?.conflict]);
@@ -383,24 +397,22 @@ function App() {
           本机文档 <span>{notes.length}</span>
         </div>
         <nav>
-          {notes
-            .filter((n) => (n + (files[n + ".md"] ?? "")).includes(query))
-            .map((n) => (
-              <button
-                className={n === active ? "note active" : "note"}
-                key={n}
-                disabled={busy}
-                onClick={() => {
-                  openNote(
-                    n,
-                    files[n + ".md"] !== undefined ? "markdown" : "map",
-                  );
-                }}
-              >
-                <span>{n.split("/").pop()}</span>
-                <small>{n.split("/").slice(1, -1).join(" / ")}</small>
-              </button>
-            ))}
+          {notes.filter(matchesSearch).map((n) => (
+            <button
+              className={n === active ? "note active" : "note"}
+              key={n}
+              disabled={busy}
+              onClick={() => {
+                openNote(
+                  n,
+                  files[n + ".md"] !== undefined ? "markdown" : "map",
+                );
+              }}
+            >
+              <span>{n.split("/").pop()}</span>
+              <small>{n.split("/").slice(1, -1).join(" / ")}</small>
+            </button>
+          ))}
         </nav>
         {recentNotes.length > 0 && (
           <>

@@ -28,6 +28,29 @@ export function isFavorite(source: string) {
   return readFrontMatter(source)?.metadata.favorite === true;
 }
 
+function validTag(value: string) {
+  const tag = value.trim();
+  if (!tag || tag.length > 80 || /[\x00-\x1f\[\]#,]/.test(tag))
+    throw new Error("标签必须是长度不超过 80 的普通文本");
+  return tag;
+}
+
+/** OFM-compatible tags may be one string or a string list; never infer prose tags. */
+export function noteTags(source: string) {
+  const value = readFrontMatter(source)?.metadata.tags;
+  if (value === undefined) return [];
+  const tags = typeof value === "string" ? [value] : value;
+  if (!Array.isArray(tags) || tags.some((tag) => typeof tag !== "string"))
+    throw new Error("tags 必须是文本或文本列表");
+  const normalized = tags.map(validTag);
+  if (
+    new Set(normalized.map((tag) => tag.toLocaleLowerCase("en-US"))).size !==
+    normalized.length
+  )
+    throw new Error("tags 不能包含重复标签");
+  return normalized;
+}
+
 /** Change only the top-level portable `favorite` field, preserving source line endings. */
 export function setFavorite(source: string, favorite: boolean) {
   const front = readFrontMatter(source);
