@@ -19,6 +19,7 @@
 - YAML 保留回归：[运行 33738106355](https://github.com/zfyu222/ZFYSecondBrain/actions/runs/33738106355)，提交 `572ce23`，Ubuntu/Windows 均通过 321 项测试、构建与离线清单检查。
 - 同目录协调回归：[运行 33738816766](https://github.com/zfyu222/ZFYSecondBrain/actions/runs/33738816766)，提交 `cd8d2ce`，Ubuntu/Windows 均通过 329 项测试、构建与离线清单检查；仍不等同于多进程文件锁。
 - 启动保护回归：[运行 33739102532](https://github.com/zfyu222/ZFYSecondBrain/actions/runs/33739102532)，提交 `205afb8`，Ubuntu/Windows 均通过 332 项测试、构建与离线清单检查。
+- 本机恢复、可迁移收藏和最近文档回归：[运行 33766171065](https://github.com/zfyu222/ZFYSecondBrain/actions/runs/33766171065)，提交 `0c47bf6`，Ubuntu/Windows 均通过 350 项测试、构建与离线清单检查。
 
 ## 2. 自动化结果
 
