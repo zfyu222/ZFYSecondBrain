@@ -67,3 +67,7 @@ pnpm --filter @zfy/risk-lab exec tsx server/restore-cli.ts minimal .prototype-da
 完整 OFM 预览、二进制附件、图内节点级冲突合并、未知元数据/图谱的全引用重写、真实多设备验收、正式历史/回收站/备份恢复、身份验证、AI、NAS 和原生端。完整限制见[契约](../../docs/architecture/prototype-contracts.md)与[验证报告](../../docs/architecture/prototype-validation.md)。
 
 依赖均通过 npm/pnpm 引入现有开源组件，版本由根目录锁文件固定。仅允许 esbuild 的必要安装构建脚本。
+
+## 自动检查
+
+GitHub 的 `Prototype checks` 工作流在提交/PR 时使用标准 Ubuntu、Windows 运行器，执行锁定依赖安装、测试、构建和离线产物清单检查。仅给源码读取权限，不保存 Git 凭据，不部署服务、不上传原型数据；第三方 Actions 固定至核对过的提交 SHA。若仓库改回私有，工作流跳过运行器任务，避免未经确认消耗私有仓库额度。具体运行结果以 Actions 页面为准，配置存在不等于已经通过。
