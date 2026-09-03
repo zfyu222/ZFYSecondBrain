@@ -219,9 +219,11 @@ export class FileStore {
             continue;
           }
           const bytes = await fs.readFile(absolute);
-          const decoded = new TextDecoder("utf-8", { fatal: true }).decode(
-            bytes,
-          );
+          // ignoreBOM keeps the marker in the decoded text, preserving raw bytes.
+          const decoded = new TextDecoder("utf-8", {
+            fatal: true,
+            ignoreBOM: true,
+          }).decode(bytes);
           files[rel] = decoded;
         }
       }
