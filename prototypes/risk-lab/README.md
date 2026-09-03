@@ -31,6 +31,8 @@ pnpm preview:prototype
 
 移动/重命名会写入可读的 `state/moves.json`，同步时先处理旧路径再比较正文。OPML 正文与 URL、配对关系 YAML 的文件名也会更新。历史移动后的同名新建或目标占用无法确定归属时会停止，保留草稿；仅大小写变化的重命名暂时拒绝。
 
+Markdown 链接重写使用解析器提供的位置；支持转义、标题、查询、锚点及部分 Front Matter 引用。遇到需更新但尚未支持的 HTML 或未知结构化引用，会取消移动并保留原文。支持移动重写不等于预览已支持完整 OFM 渲染。
+
 ## 数据位置
 
 - 服务端：本目录下 `.prototype-data/server/{raw,derived,state}`；已被 Git 忽略。

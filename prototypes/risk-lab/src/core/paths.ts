@@ -1,6 +1,6 @@
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
+import { parse, postprocess, preprocess } from "micromark";
+import { gfm } from "micromark-extension-gfm";
+import { decodeString } from "micromark-util-decode-string";
 import { pathSchema } from "./contracts";
 import {
   parseOpml,
@@ -9,7 +9,7 @@ import {
   safeYaml,
   relationsSchema,
 } from "./formats";
-import { parseDocument } from "yaml";
+import { parseDocument, isMap, isSeq, isScalar } from "yaml";
 
 function resolve(from: string, target: string): string {
   const parts =
@@ -38,9 +38,10 @@ export function rewriteTarget(
   moves: Map<string, string>,
 ) {
   if (/^[a-z][a-z\d+.-]*:|^\/|^#/i.test(target)) return target;
-  const split = target.indexOf("#");
+  const split = target.search(/[?#]/);
   const path = split < 0 ? target : target.slice(0, split),
     anchor = split < 0 ? "" : target.slice(split);
+  if (!path) return target;
   let decoded: string;
   try {
     decoded = decodeURIComponent(path);
@@ -62,7 +63,11 @@ export function rewriteTarget(
       ? destination
       : relative(newOwner, destination);
   if (!oldActual && oldOwner === newOwner) return target;
-  return (path.includes("%") ? encodeURI(result) : result) + anchor;
+  return (
+    (path.includes("%") ? encodeURI(result) : result).replace(/[?#]/g, (c) =>
+      encodeURIComponent(c),
+    ) + anchor
+  );
 }
 
 export function rewriteMarkdown(
@@ -70,63 +75,181 @@ export function rewriteMarkdown(
   oldOwner: string,
   newOwner: string,
   moves: Map<string, string>,
+  processFrontMatter = true,
 ): string {
-  const ast = unified().use(remarkParse).use(remarkGfm).parse(text);
   const edits: { start: number; end: number; value: string }[] = [];
-  const codeRanges: [number, number][] = [];
+  const protectedRanges: [number, number][] = [];
   const rewrite = (target: string) =>
     rewriteTarget(target, oldOwner, newOwner, moves);
-  function walk(node: any) {
-    const start = node.position?.start.offset,
-      end = node.position?.end.offset;
-    if (
-      node.type === "code" ||
-      node.type === "inlineCode" ||
-      node.type === "html"
-    ) {
-      codeRanges.push([start, end]);
-      return;
-    }
-    if (
-      ["link", "image", "definition"].includes(node.type) &&
-      typeof node.url === "string"
-    ) {
-      const updated = rewrite(node.url);
-      if (updated !== node.url) {
-        const raw = text.slice(start, end);
-        // Only rewrite the parsed destination, never matching arbitrary prose.
-        const destinationStart =
-          node.type === "definition"
-            ? raw.indexOf(":") + 1
-            : raw.lastIndexOf("](") + 2;
-        const at = raw.indexOf(node.url, destinationStart);
-        if (at < destinationStart || destinationStart < 1)
-          throw new Error("此 Markdown 链接写法暂不支持安全重写");
-        edits.push({
-          start: start + at,
-          end: start + at + node.url.length,
-          value: updated,
-        });
+  let input = text;
+  const front = processFrontMatter
+    ? /^(\uFEFF?---\r?\n)([\s\S]*?)(\r?\n(?:---|\.\.\.)(?:\r?\n|$))/.exec(text)
+    : null;
+  if (processFrontMatter && /^\uFEFF?---\r?\n/.test(text) && !front)
+    throw new Error("Front Matter 未闭合，移动已取消");
+  if (front) {
+    safeYaml(front[2]);
+    const doc = parseDocument(front[2]);
+    let changed = false;
+    const pathKeys = new Set([
+      "url",
+      "cover",
+      "image",
+      "video",
+      "audio",
+      "attachment",
+      "links",
+      "references",
+    ]);
+    function visit(node: unknown, key = "") {
+      if (isMap(node))
+        for (const pair of node.items)
+          visit(pair.value, isScalar(pair.key) ? String(pair.key.value) : "");
+      else if (isSeq(node)) for (const item of node.items) visit(item, key);
+      else if (isScalar(node) && typeof node.value === "string") {
+        const original = node.value;
+        let value = rewriteMarkdown(original, oldOwner, newOwner, moves, false);
+        if (
+          pathKeys.has(key) &&
+          value === original &&
+          !/\[\[|\]\(/.test(original)
+        )
+          value = rewrite(original);
+        else if (
+          /^(raw|derived)\//.test(original) &&
+          rewrite(original) !== original &&
+          value === original
+        )
+          throw new Error(
+            "Front Matter 未知字段含路径，请先明确字段类型：" + key,
+          );
+        if (value !== original) {
+          node.value = value;
+          changed = true;
+        }
       }
     }
-    node.children?.forEach(walk);
+    visit(doc.contents);
+    if (changed) {
+      const newline = front[1].includes("\r\n") ? "\r\n" : "\n";
+      const yaml = String(doc)
+        .replace(/\r?\n$/, "")
+        .replace(/\r?\n/g, newline);
+      edits.push({
+        start: 0,
+        end: front[0].length,
+        value: front[1] + yaml + front[3],
+      });
+    }
+    protectedRanges.push([0, front[0].length]);
+    input = front[0].replace(/[^\r\n]/g, " ") + text.slice(front[0].length);
   }
-  walk(ast);
-  const wiki = /!?\[\[([^\]\n]+)\]\]/g;
-  for (const match of text.matchAll(wiki)) {
-    const start = match.index!;
-    if (codeRanges.some(([a, b]) => a <= start && start < b)) continue;
-    const labelSplit = match[1].indexOf("|");
-    const target = labelSplit < 0 ? match[1] : match[1].slice(0, labelSplit);
-    const updated = rewrite(target);
-    if (updated !== target) {
-      const at = start + match[0].indexOf("[[") + 2;
-      edits.push({ start: at, end: at + target.length, value: updated });
+  const events = postprocess(
+    parse({ extensions: [gfm()] })
+      .document()
+      .write(preprocess()(input, undefined, true)),
+  );
+  for (const [event, token] of events) {
+    if (event !== "enter") continue;
+    const start = token.start.offset,
+      end = token.end.offset;
+    if (
+      [
+        "codeFenced",
+        "codeIndented",
+        "codeText",
+        "htmlFlow",
+        "htmlText",
+        "resourceDestination",
+        "definitionDestination",
+        "resourceTitle",
+        "definitionTitle",
+      ].includes(token.type)
+    )
+      protectedRanges.push([start, end]);
+    if (token.type === "htmlFlow" || token.type === "htmlText") {
+      const raw = text.slice(start, end);
+      for (const attr of raw.matchAll(
+        /\b(href|src|poster|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi,
+      )) {
+        const value = decodeString(attr[2] ?? attr[3] ?? attr[4]);
+        const targets =
+          attr[1].toLowerCase() === "srcset"
+            ? value.split(",").map((v) => v.trim().split(/\s+/)[0])
+            : [value];
+        if (targets.some((v) => rewrite(v) !== v))
+          throw new Error("HTML 资源引用尚未支持安全重写，移动已取消");
+      }
+    }
+    if (
+      token.type === "resourceDestinationString" ||
+      token.type === "definitionDestinationString"
+    ) {
+      const raw = text.slice(start, end),
+        target = decodeString(raw),
+        updated = rewrite(target);
+      if (updated !== target) {
+        // Escape syntax rather than reprinting the entire Markdown document.
+        const value = updated
+          .replace(/[\s()\\<>]/g, (c) =>
+            c === "(" ? "%28" : c === ")" ? "%29" : encodeURIComponent(c),
+          )
+          .replaceAll("&", "&amp;");
+        edits.push({ start, end, value });
+      }
     }
   }
-  for (const edit of edits.sort((a, b) => b.start - a.start))
+  for (const match of text.matchAll(/!?\[\[([^\]\n]+)\]\]/g)) {
+    const start = match.index!,
+      opening = start + match[0].indexOf("[[");
+    let escapes = 0;
+    for (let i = opening - 1; i >= 0 && text[i] === "\\"; i--) escapes++;
+    if (
+      escapes % 2 ||
+      protectedRanges.some(([a, b]) => a <= start && start < b)
+    )
+      continue;
+    const labelSplit = match[1].indexOf("|"),
+      target = labelSplit < 0 ? match[1] : match[1].slice(0, labelSplit);
+    const updated = rewrite(target);
+    if (updated !== target)
+      edits.push({
+        start: opening + 2,
+        end: opening + 2 + target.length,
+        value: updated,
+      });
+  }
+  const ordered = edits.sort((a, b) => b.start - a.start);
+  for (let i = 1; i < ordered.length; i++)
+    if (ordered[i].end > ordered[i - 1].start)
+      throw new Error("引用范围重叠，拒绝不确定的重写");
+  for (const edit of ordered)
     text = text.slice(0, edit.start) + edit.value + text.slice(edit.end);
   return text;
+}
+function assertNoUnknownReferences(
+  value: unknown,
+  owner: string,
+  destination: string,
+  moves: Map<string, string>,
+) {
+  if (typeof value === "string") {
+    const pathLike =
+      /^(?:\.{1,2}\/|raw\/|derived\/)/.test(value) ||
+      /\.[a-z0-9]{1,12}(?:[?#].*)?$/i.test(value);
+    if (
+      (pathLike && rewriteTarget(value, owner, destination, moves) !== value) ||
+      rewriteMarkdown(value, owner, destination, moves, false) !== value
+    )
+      throw new Error("未知结构化字段含引用，需先明确 schema；移动已取消");
+  } else if (Array.isArray(value))
+    value.forEach((item) =>
+      assertNoUnknownReferences(item, owner, destination, moves),
+    );
+  else if (value && typeof value === "object")
+    Object.values(value).forEach((item) =>
+      assertNoUnknownReferences(item, owner, destination, moves),
+    );
 }
 export function moveNote(
   files: Record<string, string>,
@@ -189,6 +312,9 @@ export function moveNote(
       const map = parseOpml(content);
       let changed = false;
       for (const { node } of flatten(map)) {
+        for (const [name, value] of Object.entries(node.attrs))
+          if (!["url", "htmlUrl", "xmlUrl"].includes(name))
+            assertNoUnknownReferences(value, path, destination, moves);
         const body = rewriteMarkdown(node.body, path, destination, moves);
         if (body !== node.body) {
           node.body = body;
@@ -219,6 +345,12 @@ export function moveNote(
         result[destination] = String(doc);
       } else result[destination] = content;
     } else if (/\.(yaml|json)$/.test(path)) {
+      assertNoUnknownReferences(
+        path.endsWith(".json") ? JSON.parse(content) : safeYaml(content),
+        path,
+        destination,
+        moves,
+      );
       if (
         [...moves.keys()].some(
           (p) =>

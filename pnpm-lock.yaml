@@ -28,6 +28,15 @@ importers:
       fastify:
         specifier: ^5.6.0
         version: 5.12.1
+      micromark:
+        specifier: 4.0.2
+        version: 4.0.2
+      micromark-extension-gfm:
+        specifier: 3.0.0
+        version: 3.0.0
+      micromark-util-decode-string:
+        specifier: 2.0.1
+        version: 2.0.1
       node-diff3:
         specifier: 3.2.1
         version: 3.2.1
