@@ -21,6 +21,7 @@ import {
   restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
+import { isFavorite, setFavorite } from "./core/note-metadata";
 import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
@@ -291,6 +292,19 @@ function App() {
           },
     );
   }
+  function toggleFavorite() {
+    const path = active + ".md";
+    try {
+      update({
+        [path]: setFavorite(
+          filesRef.current[path],
+          !isFavorite(filesRef.current[path]),
+        ),
+      });
+    } catch (error) {
+      setError(String(error));
+    }
+  }
   const notes = [
     ...new Set(
       Object.keys(files)
@@ -301,6 +315,14 @@ function App() {
   const title = active.split("/").pop();
   const hasMd = `${active}.md` in files,
     hasMap = `${active}.opml` in files;
+  const favoriteNotes = notes.filter((path) => {
+    try {
+      return isFavorite(files[path + ".md"] ?? "");
+    } catch {
+      return false;
+    }
+  });
+  const activeFavorite = hasMd && favoriteNotes.includes(active);
   const editingLocked = busy || !!row?.conflict || !!row?.pendingMove;
   useEffect(() => {
     setChoices({});
@@ -356,6 +378,29 @@ function App() {
               </button>
             ))}
         </nav>
+        {favoriteNotes.length > 0 && (
+          <>
+            <div className="section-label">
+              最喜爱 <span>{favoriteNotes.length}</span>
+            </div>
+            <nav>
+              {favoriteNotes.map((n) => (
+                <button
+                  className={n === active ? "note active" : "note"}
+                  key={n}
+                  disabled={busy}
+                  onClick={() => {
+                    setActive(n);
+                    setView("markdown");
+                  }}
+                >
+                  <span>★ {n.split("/").pop()}</span>
+                  <small>{n.split("/").slice(1, -1).join(" / ")}</small>
+                </button>
+              ))}
+            </nav>
+          </>
+        )}
         <div className="sidebar-footer">
           <span className="dot" /> 原始文件，不锁在应用里
           <p>Markdown · OPML · YAML</p>
@@ -379,6 +424,9 @@ function App() {
               />
               模拟断网
             </label>
+            <button disabled={editingLocked || !hasMd} onClick={toggleFavorite}>
+              {activeFavorite ? "★ 已喜爱" : "☆ 喜爱"}
+            </button>
             <button
               className="primary"
               disabled={busy || offline || !row || !!row.conflict}
