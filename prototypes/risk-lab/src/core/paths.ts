@@ -314,6 +314,29 @@ export function moveNote(
     else if (path.endsWith(".opml")) {
       const map = parseOpml(content);
       let changed = false;
+      const literalHeadFields = new Set([
+        "ownerName",
+        "ownerEmail",
+        "dateCreated",
+        "dateModified",
+        "expansionState",
+        "vertScrollState",
+        "windowTop",
+        "windowLeft",
+        "windowBottom",
+        "windowRight",
+      ]);
+      for (const [name, value] of Object.entries(map.head ?? {})) {
+        if (literalHeadFields.has(name)) continue;
+        if (["docs", "ownerId"].includes(name)) {
+          const rewritten = rewriteTarget(value, path, destination, moves);
+          if (rewritten !== value) {
+            map.head![name] = rewritten;
+            changed = true;
+          }
+        } else assertNoUnknownReferences(value, path, destination, moves);
+      }
+      assertNoUnknownReferences(map.attributes, path, destination, moves);
       for (const { node } of flatten(map)) {
         for (const [name, value] of Object.entries(node.attrs))
           if (!["url", "htmlUrl", "xmlUrl"].includes(name))

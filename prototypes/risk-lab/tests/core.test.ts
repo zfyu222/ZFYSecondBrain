@@ -79,7 +79,9 @@ describe("open formats", () => {
     const xml = serializeOpml({ title: "t", root: topic("根") });
     expect(() => parseOpml("<!DOCTYPE opml>" + xml)).toThrow();
     expect(() =>
-      parseOpml(xml.replace("</head>", "<custom>keep</custom></head>")),
+      parseOpml(
+        xml.replace("</head>", "<custom><nested>keep</nested></custom></head>"),
+      ),
     ).toThrow();
     expect(() => parseOpml(xml.replace("<body>", "<body>keep me"))).toThrow();
     expect(() =>

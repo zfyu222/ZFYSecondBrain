@@ -9,7 +9,13 @@ export type Topic = {
   children: Topic[];
   attrs: Record<string, string>;
 };
-export type Mindmap = { title: string; root: Topic };
+export type Mindmap = {
+  title: string;
+  root: Topic;
+  /** Opaque scalar head fields and document attributes are preserved, never executed. */
+  head?: Record<string, string>;
+  attributes?: Record<string, string>;
+};
 export const relationTypes = [
   "定义为",
   "属于",
@@ -103,6 +109,12 @@ const attrEscape = (s: string) =>
     .replaceAll("\r", "&#13;")
     .replaceAll("\n", "&#10;")
     .replaceAll("\t", "&#9;");
+const xmlName = /^[a-zA-Z_][\w.-]*(?::[a-zA-Z_][\w.-]*)?$/;
+function xmlAttribute(name: string, value: string) {
+  if (!xmlName.test(name) || typeof value !== "string")
+    throw new Error("不支持的 OPML 属性");
+  return ` ${name}="${attrEscape(value)}"`;
+}
 export function serializeOpml(map: Mindmap): string {
   function outline(n: Topic, level: number): string {
     const attributes = {
@@ -112,18 +124,27 @@ export function serializeOpml(map: Mindmap): string {
       zfyBody: n.body,
     };
     const attrs = Object.entries(attributes)
-      .map(([k, v]) => {
-        if (!/^[a-zA-Z_][\w.-]*$/.test(k))
-          throw new Error("不支持的 OPML 属性");
-        return ` ${k}="${attrEscape(v)}"`;
-      })
+      .map(([k, v]) => xmlAttribute(k, v))
       .join("");
     const indent = "  ".repeat(level);
     return n.children.length
       ? `${indent}<outline${attrs}>\n${n.children.map((c) => outline(c, level + 1)).join("\n")}\n${indent}</outline>`
       : `${indent}<outline${attrs} />`;
   }
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n  <head><title>${attrEscape(map.title)}</title></head>\n  <body>\n${outline(map.root, 2)}\n  </body>\n</opml>\n`;
+  const attributes = Object.entries(map.attributes ?? {})
+    .map(([name, value]) => {
+      if (name === "version") throw new Error("OPML 扩展属性不能覆盖版本");
+      return xmlAttribute(name, value);
+    })
+    .join("");
+  const head = Object.entries(map.head ?? {})
+    .map(([name, value]) => {
+      if (!xmlName.test(name) || name === "title" || typeof value !== "string")
+        throw new Error("不支持的 OPML head 字段");
+      return `<${name}>${attrEscape(value)}</${name}>`;
+    })
+    .join("");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0"${attributes}>\n  <head><title>${attrEscape(map.title)}</title>${head}</head>\n  <body>\n${outline(map.root, 2)}\n  </body>\n</opml>\n`;
 }
 export function parseOpml(xml: string): Mindmap {
   if (xml.length > 2_000_000 || /<!DOCTYPE|<!ENTITY|<!--/i.test(xml))
@@ -138,21 +159,44 @@ export function parseOpml(xml: string): Mindmap {
   }).parse(xml);
   if (Object.keys(parsed).some((k) => !["opml", "?xml"].includes(k)))
     throw new Error("不支持的 XML 顶层内容");
+  const declaration = parsed["?xml"];
+  if (
+    declaration &&
+    (Array.isArray(declaration) ||
+      typeof declaration !== "object" ||
+      Object.keys(declaration).some(
+        (name) => !["@_version", "@_encoding"].includes(name),
+      ) ||
+      declaration["@_version"] !== "1.0" ||
+      (declaration["@_encoding"] !== undefined &&
+        !/^utf-?8$/i.test(declaration["@_encoding"])))
+  )
+    throw new Error("原型不重写未知 XML 声明或非 UTF-8 编码，原文未修改");
   const doc = parsed.opml;
   if (
     !doc ||
     doc["@_version"] !== "2.0" ||
     Object.keys(doc).some(
-      (k) => !["head", "body", "@_version", "#text"].includes(k),
+      (k) => !["head", "body", "#text"].includes(k) && !k.startsWith("@_"),
     )
   )
     throw new Error("不支持的 OPML 文档结构");
-  if (
-    !doc.head ||
-    Object.keys(doc.head).some((k) => !["title", "#text"].includes(k)) ||
-    typeof doc.head.title !== "string"
-  )
-    throw new Error("原型只支持含 title 的 OPML head，不会丢弃扩展字段");
+  if (!doc.head || typeof doc.head.title !== "string")
+    throw new Error("原型需要唯一文本 title，不会猜测或丢弃 OPML head");
+  const head: Record<string, string> = Object.create(null);
+  for (const [name, value] of Object.entries(doc.head)) {
+    if (["title", "#text"].includes(name)) continue;
+    if (!xmlName.test(name) || typeof value !== "string")
+      throw new Error("原型只保留单值文本 OPML head 字段，复杂扩展原文未修改");
+    head[name] = value;
+  }
+  const attributes: Record<string, string> = Object.create(null);
+  for (const [name, value] of Object.entries(doc)) {
+    if (!name.startsWith("@_") || name === "@_version") continue;
+    if (!xmlName.test(name.slice(2)) || typeof value !== "string")
+      throw new Error("不支持的 OPML 文档属性");
+    attributes[name.slice(2)] = value;
+  }
   if (
     !doc.body ||
     Object.keys(doc.body).some((k) => !["outline", "#text"].includes(k)) ||
@@ -171,10 +215,11 @@ export function parseOpml(xml: string): Mindmap {
       throw new Error("导图超过原型节点/深度限制");
     if (typeof raw["@_text"] !== "string" || !raw["@_text"].trim())
       throw new Error("导图节点标题不能为空");
-    const attrs: Record<string, string> = {};
+    const attrs: Record<string, string> = Object.create(null);
     for (const [k, v] of Object.entries(raw)) {
       if (k.startsWith("@_")) {
-        if (typeof v !== "string") throw new Error("OPML 属性必须是文本");
+        if (typeof v !== "string" || !xmlName.test(k.slice(2)))
+          throw new Error("OPML 属性必须是受支持的文本属性");
         attrs[k.slice(2)] = v;
       } else if (
         k !== "outline" &&
@@ -193,7 +238,14 @@ export function parseOpml(xml: string): Mindmap {
       ),
     };
   }
-  return { title: doc.head.title, root: read(doc.body.outline[0], 0) };
+  return {
+    title: doc.head.title,
+    root: read(doc.body.outline[0], 0),
+    ...(Object.keys(head).length ? { head: { ...head } } : {}),
+    ...(Object.keys(attributes).length
+      ? { attributes: { ...attributes } }
+      : {}),
+  };
 }
 export function parseRelations(text: string, map: Mindmap): Relation[] {
   if (!text.trim()) return [];
