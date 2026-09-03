@@ -11,6 +11,7 @@ const names = [
   "assets/MarkdownEditor.js",
   "assets/MapEditor.js",
   "assets/MapEditor.css",
+  "assets/KaTeX_Main-Regular.woff2",
 ];
 function worker(failInstall = false) {
   const listeners = new Map<string, (event: unknown) => void>();
@@ -81,6 +82,7 @@ describe("offline shell and lazy editor cache", () => {
         "sw.js",
       ]),
     ).toEqual([
+      "/assets/KaTeX_Main-Regular.woff2",
       "/assets/MapEditor.css",
       "/assets/MapEditor.js",
       "/assets/MarkdownEditor.js",

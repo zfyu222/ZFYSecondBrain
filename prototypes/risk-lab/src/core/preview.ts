@@ -3,6 +3,12 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkWikiLink from "@flowershow/remark-wiki-link";
+import remarkCallout, {
+  type Options as CalloutOptions,
+} from "@r4ai/remark-callout";
+import { remarkHighlightMark } from "remark-highlight-mark";
+import remarkMath from "remark-math";
+import type { PluggableList, Plugin } from "unified";
 import GithubSlugger from "github-slugger";
 import type { Root } from "mdast";
 import { pathSchema } from "./contracts";
@@ -11,6 +17,8 @@ import { safeYaml } from "./formats";
 type PreviewNode = {
   type: string;
   value?: string;
+  lang?: string | null;
+  position?: { start: { offset?: number } };
   depth?: number;
   children?: PreviewNode[];
   data?: {
@@ -28,17 +36,75 @@ export const previewFrontmatterOptions = [
   { type: "yaml", fence: { open: "---", close: "---" } },
   { type: "yaml", fence: { open: "---", close: "..." } },
 ];
-const parser = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkFrontmatter, previewFrontmatterOptions)
-  .use(remarkWikiLink, previewWikiOptions);
+const calloutOptions: CalloutOptions = {
+  root: (callout) => ({
+    tagName: callout.isFoldable ? "details" : "div",
+    properties: {
+      className: ["callout"],
+      dataCalloutType: callout.type.toLowerCase(),
+      ...(callout.isFoldable ? { open: !callout.defaultFolded } : {}),
+    },
+  }),
+  title: (callout) => ({
+    tagName: callout.isFoldable ? "summary" : "div",
+    properties: { className: ["callout-title"] },
+  }),
+  body: { tagName: "div", properties: { className: ["callout-body"] } },
+};
+// The community transformer sees decoded text; protect escaped/entity markers
+// without reimplementing its nested callout and inline-title handling.
+const remarkSafeCallout: Plugin<[], Root> = function () {
+  const transform = remarkCallout.call(this, calloutOptions);
+  if (typeof transform !== "function") throw new Error("Callout 插件不可用");
+  return (tree, file) => {
+    const source = file.toString(),
+      protectedNodes: PreviewNode[] = [];
+    const protect = (node: PreviewNode) => {
+      if (node.type === "blockquote") {
+        const first = node.children?.[0]?.children?.[0];
+        const offset = first?.position?.start.offset;
+        if (
+          first?.type === "text" &&
+          first.value?.startsWith("[!") &&
+          (offset === undefined || source.slice(offset, offset + 2) !== "[!")
+        ) {
+          node.type = "escapedBlockquote";
+          protectedNodes.push(node);
+        }
+      }
+      node.children?.forEach(protect);
+    };
+    protect(tree as unknown as PreviewNode);
+    try {
+      return transform(tree, file, (error) => {
+        if (error) throw error;
+      });
+    } finally {
+      protectedNodes.forEach((node) => {
+        node.type = "blockquote";
+      });
+    }
+  };
+};
+export const previewRemarkPlugins: PluggableList = [
+  remarkGfm,
+  [remarkFrontmatter, previewFrontmatterOptions],
+  [remarkWikiLink, previewWikiOptions],
+  remarkHighlightMark,
+  remarkMath,
+  remarkSafeCallout,
+  remarkPreviewPolicy,
+];
+const parser = unified().use(remarkParse).use(previewRemarkPlugins);
 const textOf = (node: PreviewNode): string =>
   node.type === "wikiLink"
     ? (node.data?.alias ?? node.value ?? "")
     : (node.value ?? node.children?.map(textOf).join("") ?? "");
 export function inspectMarkdown(source: string) {
-  const tree = parser.parse(source) as unknown as PreviewNode;
+  const tree = parser.runSync(
+    parser.parse(source),
+    source,
+  ) as unknown as PreviewNode;
   const first = tree.children?.[0];
   let metadata: unknown,
     metadataError = "";
@@ -131,15 +197,35 @@ export function resolveNoteLink(
 export function remarkPreviewPolicy() {
   return (root: Root) => {
     const slugger = new GithubSlugger();
+    let mathCount = 0,
+      mathLength = 0;
     const walk = (node: PreviewNode) => {
-      if (node.type === "heading")
-        node.data = { hProperties: { id: slugger.slug(textOf(node)) } };
+      if (node.type === "highlight") node.data = { hName: "mark" };
+      if (
+        node.type === "math" ||
+        node.type === "inlineMath" ||
+        (node.type === "code" && node.lang === "math")
+      ) {
+        mathCount++;
+        mathLength += node.value?.length ?? 0;
+        if (
+          (node.value?.length ?? 0) > 8192 ||
+          mathCount > 200 ||
+          mathLength > 65536
+        ) {
+          node.type = node.type === "inlineMath" ? "inlineCode" : "code";
+          node.lang = "text";
+          node.value = "[公式超过预览上限，保留源码] " + node.value;
+          node.data = undefined;
+        }
+      }
       if (node.type === "wikiLink" || node.type === "embed") {
         const embedded = node.type === "embed";
         const value = node.value ?? "",
           label = node.data?.alias ?? value;
         // Never allow the plugin's automatic iframe/video/src elements to load resources.
         node.data = {
+          alias: label,
           hName: embedded ? "span" : "a",
           hProperties: embedded ? {} : { href: value },
           hChildren: [
@@ -151,6 +237,8 @@ export function remarkPreviewPolicy() {
         };
       }
       node.children?.forEach(walk);
+      if (node.type === "heading")
+        node.data = { hProperties: { id: slugger.slug(textOf(node)) } };
     };
     walk(root as unknown as PreviewNode);
   };

@@ -70,6 +70,28 @@ describe("source-position Markdown reference rewriting", () => {
       source.replace("../Inbox/a.md", "../Projects/b.md"),
     );
   });
+  it("does not rewrite link-like text inside inline or display math", () => {
+    const math =
+      "$[[raw/Inbox/a]] + [x](../Inbox/a.md)$\n\n$$\n[[raw/Inbox/a]] + [x](../Inbox/a.md)\n$$";
+    expect(rewrite(math + "\n\n[[raw/Inbox/a|real]]")).toBe(
+      math + "\n\n[[raw/Projects/b|real]]",
+    );
+  });
+  it("still rewrites real links next to escaped dollars and inside callouts/highlights", () => {
+    const source =
+      "> [!note]- 标题\r\n> ==[x](../Inbox/a.md)== 与 \\$ [[raw/Inbox/a|真实]] \\$";
+    expect(rewrite(source)).toBe(
+      source
+        .replace("../Inbox/a.md", "../Projects/b.md")
+        .replace("raw/Inbox/a|", "raw/Projects/b|"),
+    );
+  });
+  it("keeps math paths literal even when the owning document moves", () => {
+    const source = "$[[邻居]] + [x](邻居.md)$\n\n[[邻居]]";
+    expect(rewriteMarkdown(source, from, to, moves)).toBe(
+      "$[[邻居]] + [x](邻居.md)$\n\n[[../Inbox/邻居]]",
+    );
+  });
   it("preserves unchanged Markdown byte-for-byte", () => {
     const source =
       "# title\r\n\r\n[x](https://example.com)\r\n\r\n*  weird   spacing\r\n";

@@ -36,6 +36,22 @@ assert(!assets.includes("/"), "不能缓存部署时可能变化的根入口");
 assert(!worker.includes("skipWaiting("), "不能强制接管正在编辑的旧页面");
 assert(!worker.includes("clients.claim("), "不能接管未受控的旧代码页面");
 assert(
+  assets.some((p) => /\/MarkdownPreview-[^/]+\.js$/.test(p)),
+  "阅读视图没有独立分包",
+);
+assert(
+  assets.some((p) => /KaTeX_.*\.woff2$/.test(p)),
+  "公式字体未缓存",
+);
+for (const name of names.filter((p) => p.endsWith(".css"))) {
+  const css = await fs.readFile(path.join(root, name), "utf8");
+  for (const match of css.matchAll(/url\(([^)]+)\)/g)) {
+    const url = match[1].trim().replace(/^["']|["']$/g, "");
+    if (url.startsWith("data:")) continue;
+    assert(assets.includes(url), `样式引用的资源未缓存或来自外部：${url}`);
+  }
+}
+assert(
   assets.some((p) => /\/MapEditor-[^/]+\.js$/.test(p)),
   "导图编辑器没有独立分包",
 );

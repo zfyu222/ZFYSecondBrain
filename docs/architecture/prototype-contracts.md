@@ -17,7 +17,13 @@
 
 Wiki 语法使用 `@flowershow/remark-wiki-link@3.4.0`，显式路径由项目解析，不启用模糊全库 basename 匹配。普通和 Wiki 库内链接均在当前应用打开 `.md`/`.opml`；标题支持原文标题或可读 slug，重复标题的 slug 加序号。标题不存在、文档丢失、附件未支持时明确提示，不打开错误 HTTP 路径。标题改名的引用维护仍待实现，不能将只读定位视为改名维护完成。
 
-Front Matter 使用 `remark-frontmatter@5.0.0`，支持 `---`/`...` 结束标记；值由现有 YAML 校验读取。渲染使用 `rehype-sanitize@6.0.0` 白名单，原始 HTML 跳过，禁止脚本/文件协议和绝对站点路径。外部 http(s)/mailto 链接需用户点击；新窗口带 `noopener noreferrer`。媒体和文档嵌入全部转为含原始路径的占位文本，不自动加载插件产生的 iframe、播放器或图片。Callout、高亮、数学公式、嵌入正文、二进制媒体和完整 OFM 尚未完成。
+Front Matter 使用 `remark-frontmatter@5.0.0`，支持 `---`/`...` 结束标记；值由现有 YAML 校验读取。渲染使用 `rehype-sanitize@6.0.0` 白名单，原始 HTML 跳过，禁止脚本/文件协议和绝对站点路径。外部 http(s)/mailto 链接需用户点击；新窗口带 `noopener noreferrer`。媒体和文档嵌入全部转为含原始路径的占位文本，不自动加载插件产生的 iframe、播放器或图片。正文嵌入、二进制媒体和完整 OFM 尚未完成。
+
+Callout 使用 [@r4ai/remark-callout](https://github.com/r4ai/remark-callout) 0.6.2，支持自定义标题、类型、嵌套、`+` 默认展开和 `-` 默认收起；原生 `details/summary` 只改变阅读状态，不写回 Markdown。自定义类型使用通用样式，不执行自定义 CSS。适配层保护被反斜杠/实体转义的标记，保留普通引用。高亮使用 [remark-highlight-mark](https://github.com/shlroland/remark-highlight-mark) 1.4.0 的语法解析，适配其 `highlight` 节点为 `mark`，支持内部强调与链接，不通过全局正则替换原文。
+
+数学使用 [remark-math / rehype-katex](https://github.com/remarkjs/remark-math) 6.0.0 / 7.0.1，配套 KaTeX 0.16.47（插件兼容的 0.16 系列）；支持 `$...$`、独立 `$$` 块及 `math` 代码围栏。先清洗普通标记，再允许 KaTeX 生成公式布局；[trust=false](https://katex.org/docs/options.html) 禁用公式中的链接、远程图片和 HTML 扩展，未配置跨表达式共享宏。字体本地打包，无 CDN。错误公式显示错误/源码而不丢失周围正文；单公式超过 8192 字符、超过 200 个公式或累计超过 65536 字符时保留源码提示，不继续渲染。另限制宏展开 1000 次、用户指定尺寸 20em；这些是原型阅读保护，不是正式文档容量限制或性能承诺。需要字面美元符号时可写 `\$` 或放入代码中。
+
+阅读与标题提取共用插件管线，包含高亮、Wiki 别名和公式的标题保持一致。路径重写也启用同系列数学语法：公式内部看似 Markdown/Wiki 链接的字符不重写，公式外的实际引用照常更新。
 
 依赖核验：实际安装的 Flowershow 4.0.0 发布包缺少声明的 `dist` 入口；已改用核对过发布文件、通过构建的 3.4.0，并锁定版本。上述新增插件及 `github-slugger@2.0.0` 的包声明均为 MIT；不等于已完成全依赖发行许可证审计。实现方向和上游链接见[格式文档](../requirements/markdown-format.md)。
 
@@ -132,7 +138,7 @@ relations:
 
 ## 7. 兼容性约束
 
-两个编辑器按需分包，加载失败隔离在编辑区域，其他草稿导出/状态界面仍保留。生产构建额外生成带内容散列的 HTML 入口；Worker 缓存清单包含该入口与全部 JS/CSS 分包，`pnpm check:build` 核对入口内容/散列和全部资源；API 和原始文件不进入界面缓存。离线缓存仍会下载所有分包，拆包不等于降低完整离线安装的总下载量。
+两个编辑器和阅读视图按需分包，加载失败隔离在各自区域，其他草稿导出/状态界面仍保留。生产构建额外生成带内容散列的 HTML 入口；Worker 缓存清单包含该入口、全部 JS/CSS 和公式字体，`pnpm check:build` 核对入口内容/散列和全部资源，并检查 CSS 中的每个非内联 URL 已缓存；API 和原始文件不进入界面缓存。离线缓存仍会下载所有分包和字体，拆包不等于降低完整离线安装的总下载量。
 
 Worker 遵循默认等待期，不调用 `skipWaiting` 或 `clients.claim`。安装时保留旧缓存；只有激活时清理其他 `risk-lab-` 界面缓存，不接触 IndexedDB。受控的根页面导航始终使用当前 Worker 对应的不可变 HTML；缓存丢失仅请求该版本入口，失败返回 503 与保留草稿提示，不回退到部署后可能已变更的 `/`。版本化入口缺失会使安装失败，而不是混装另一版本。
 

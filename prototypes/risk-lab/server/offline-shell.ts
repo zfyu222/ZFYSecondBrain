@@ -2,7 +2,7 @@ export function offlineAssets(names: string[]) {
   return [...new Set(names)]
     .filter(
       (p) =>
-        (/\.(js|css)$/.test(p) && p !== "sw.js") ||
+        (/\.(js|css|woff2?|ttf|otf)$/.test(p) && p !== "sw.js") ||
         /^offline-shell-[a-f0-9]{64}\.html$/.test(p),
     )
     .sort()

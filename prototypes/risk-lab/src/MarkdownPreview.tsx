@@ -1,16 +1,39 @@
 import React, { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkFrontmatter from "remark-frontmatter";
-import remarkWikiLink from "@flowershow/remark-wiki-link";
-import rehypeSanitize from "rehype-sanitize";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
 import {
   inspectMarkdown,
-  previewFrontmatterOptions,
-  previewWikiOptions,
-  remarkPreviewPolicy,
+  previewRemarkPlugins,
   resolveNoteLink,
 } from "./core/preview";
+
+// Sanitize untrusted markup first. Only KaTeX may generate math layout styles;
+// trust:false disables its URL/image/HTML commands, including ordinary HTTPS.
+const previewSchema = {
+  ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), "mark"],
+  attributes: {
+    ...defaultSchema.attributes,
+    code: [["className", "math-inline", "math-display", /^language-./]],
+    div: [
+      ...(defaultSchema.attributes?.div ?? []),
+      ["className", "callout", "callout-title", "callout-body"],
+      "dataCalloutType",
+    ],
+    details: [
+      ...(defaultSchema.attributes?.details ?? []),
+      ["className", "callout"],
+      "dataCalloutType",
+      "open",
+    ],
+    summary: [
+      ...(defaultSchema.attributes?.summary ?? []),
+      ["className", "callout-title"],
+    ],
+  },
+};
 
 export function MarkdownPreview({
   source,
@@ -56,14 +79,15 @@ export function MarkdownPreview({
         </details>
       )}
       <ReactMarkdown
-        remarkPlugins={[
-          remarkGfm,
-          [remarkFrontmatter, previewFrontmatterOptions],
-          [remarkWikiLink, previewWikiOptions],
-          remarkPreviewPolicy,
-        ]}
+        remarkPlugins={previewRemarkPlugins}
         remarkRehypeOptions={{ clobberPrefix: "" }}
-        rehypePlugins={[rehypeSanitize]}
+        rehypePlugins={[
+          [rehypeSanitize, previewSchema],
+          [
+            rehypeKatex,
+            { trust: false, maxSize: 20, maxExpand: 1000, strict: "ignore" },
+          ],
+        ]}
         skipHtml
         components={{
           a: ({ children, href, node }) => {

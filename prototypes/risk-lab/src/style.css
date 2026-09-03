@@ -458,6 +458,51 @@ h1 {
   cursor: pointer;
   color: #4c6851;
 }
+.markdown-reading mark {
+  background: #ffeb93;
+  color: #292714;
+  border-radius: 2px;
+  padding: 0 0.1em;
+}
+.markdown-reading .callout {
+  --callout-color: #456b58;
+  margin: 1rem 0;
+  border: 1px solid #cbd8d0;
+  border-left: 4px solid var(--callout-color);
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  background: #f3f7f4;
+}
+.markdown-reading .callout[data-callout-type="warning"],
+.markdown-reading .callout[data-callout-type="caution"] {
+  --callout-color: #896013;
+  background: #fff9e9;
+}
+.markdown-reading .callout[data-callout-type="danger"],
+.markdown-reading .callout[data-callout-type="failure"] {
+  --callout-color: #a63b35;
+  background: #fff3f1;
+}
+.markdown-reading .callout-title {
+  font-weight: 600;
+  color: var(--callout-color);
+  overflow-wrap: anywhere;
+}
+.markdown-reading summary.callout-title {
+  cursor: pointer;
+}
+.markdown-reading .callout-body > :last-child {
+  margin-bottom: 0;
+}
+.markdown-reading .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.4rem 0;
+}
+.markdown-reading .katex-error {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .lab-tools p {
   line-height: 1.8;
 }

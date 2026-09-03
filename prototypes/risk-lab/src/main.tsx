@@ -1,7 +1,6 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { conflictOptions } from "./core/merge";
-import { MarkdownPreview } from "./MarkdownPreview";
 import { EditorBoundary } from "./EditorBoundary";
 import { observeOfflineStatus, offlineStatusText } from "./offline-status";
 import {
@@ -17,6 +16,11 @@ import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
 const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
+const MarkdownPreview = lazy(() =>
+  import("./MarkdownPreview").then((module) => ({
+    default: module.MarkdownPreview,
+  })),
+);
 
 const db = new LocalVault();
 function download(name: string, text: string) {
@@ -337,7 +341,9 @@ function App() {
           </div>
         )}
         {offlineNotice && (
-          <div className="notice" role="status">{offlineNotice}</div>
+          <div className="notice" role="status">
+            {offlineNotice}
+          </div>
         )}
         <div className="tabs">
           <button
@@ -384,12 +390,18 @@ function App() {
               </section>
               <section className="preview">
                 <div className="pane-label">阅读 / PREVIEW · OFM 子集</div>
-                <MarkdownPreview
-                  source={files[active + ".md"]}
-                  owner={active + ".md"}
-                  files={files}
-                  onOpen={openLinkedNote}
-                />
+                <EditorBoundary key={active}>
+                  <Suspense
+                    fallback={<p className="notice">正在加载阅读视图…</p>}
+                  >
+                    <MarkdownPreview
+                      source={files[active + ".md"]}
+                      owner={active + ".md"}
+                      files={files}
+                      onOpen={openLinkedNote}
+                    />
+                  </Suspense>
+                </EditorBoundary>
               </section>
             </div>
           )}

@@ -49,6 +49,10 @@ if (process.argv.includes("--production")) {
     ".js": "text/javascript",
     ".css": "text/css",
     ".svg": "image/svg+xml",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".ttf": "font/ttf",
+    ".otf": "font/otf",
   };
   app.get("/*", async (request, reply) => {
     const urlPath = new URL(request.url, "http://localhost").pathname;

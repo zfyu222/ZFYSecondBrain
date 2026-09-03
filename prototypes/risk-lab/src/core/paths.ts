@@ -1,5 +1,6 @@
 import { parse, postprocess, preprocess } from "micromark";
 import { gfm } from "micromark-extension-gfm";
+import { math } from "micromark-extension-math";
 import { decodeString } from "micromark-util-decode-string";
 import { pathSchema } from "./contracts";
 import {
@@ -145,7 +146,7 @@ export function rewriteMarkdown(
     input = front[0].replace(/[^\r\n]/g, " ") + text.slice(front[0].length);
   }
   const events = postprocess(
-    parse({ extensions: [gfm()] })
+    parse({ extensions: [gfm(), math()] })
       .document()
       .write(preprocess()(input, undefined, true)),
   );
@@ -158,6 +159,8 @@ export function rewriteMarkdown(
         "codeFenced",
         "codeIndented",
         "codeText",
+        "mathFlow",
+        "mathText",
         "htmlFlow",
         "htmlText",
         "resourceDestination",
