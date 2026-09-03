@@ -5,6 +5,15 @@ import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { MarkdownPreview } from "./MarkdownPreview";
 import {
+  MapHistory,
+  mapShortcut,
+  moveTreeNode,
+  remapPresentation,
+  treeMoveOptions,
+  type MapSnapshot,
+  type TreeMove,
+} from "./core/map-editing";
+import {
   ReactFlow,
   Background,
   Controls,
@@ -53,14 +62,18 @@ function MapEditor({
   onChange,
 }: {
   opml: string;
-  relationsText: string;
+  relationsText?: string;
   stem: string;
-  onChange: (changes: Record<string, string>) => void;
+  onChange: (changes: Record<string, string | undefined>) => void;
 }) {
   const parsed = useMemo(() => {
     try {
       const map = parseOpml(opml);
-      return { map, relations: parseRelations(relationsText, map), error: "" };
+      return {
+        map,
+        relations: parseRelations(relationsText ?? "", map),
+        error: "",
+      };
     } catch (e) {
       return { map: null, relations: [], error: String(e) };
     }
@@ -69,8 +82,9 @@ function MapEditor({
   const [linkType, setLinkType] = useState("相关");
   const [linkTarget, setLinkTarget] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const undo = useRef<{ opml: string; relationsText: string }[]>([]),
-    redo = useRef<typeof undo.current>([]);
+  const [mapError, setMapError] = useState("");
+  const history = useRef(new MapHistory());
+  const canvas = useRef<HTMLDivElement>(null);
   const rows = parsed.map ? flatten(parsed.map) : [];
   const current = rows.find((r) => r.path === selected) ?? rows[0];
   const visible = rows.filter(
@@ -127,36 +141,73 @@ function MapEditor({
         <p>原始数据未修改。请导出后检查。</p>
       </div>
     );
-  function save(map: Mindmap, relations: Relation[]) {
-    undo.current.push({ opml, relationsText });
-    redo.current = [];
-    const changes = { [`${stem}.opml`]: serializeOpml(map) };
-    if (relationsText || relations.length)
-      changes[`${stem}.relations.yaml`] = serializeRelations(
-        `${stem}.opml`,
-        relations,
-      );
-    onChange(changes);
+  function state(): MapSnapshot {
+    return {
+      opml,
+      relationsText,
+      selected: current.path,
+      collapsed: [...collapsed],
+    };
   }
-  function change(action: (map: Mindmap, node: typeof current) => void) {
+  function save(
+    map: Mindmap,
+    relations: Relation[],
+    presentation = { selected: current.path, collapsed: [...collapsed] },
+    group?: string,
+  ) {
+    try {
+      const nextOpml = serializeOpml(map);
+      const nextRelations =
+        relationsText !== undefined || relations.length
+          ? serializeRelations(`${stem}.opml`, relations)
+          : undefined;
+      const checked = parseOpml(nextOpml);
+      parseRelations(nextRelations ?? "", checked);
+      history.current.record(
+        state(),
+        { opml: nextOpml, relationsText: nextRelations, ...presentation },
+        group,
+      );
+      setSelected(presentation.selected);
+      setCollapsed(new Set(presentation.collapsed));
+      setMapError("");
+      onChange({
+        [`${stem}.opml`]: nextOpml,
+        [`${stem}.relations.yaml`]: nextRelations,
+      });
+    } catch (error) {
+      setMapError("操作未保存，原文保留：" + String(error));
+    }
+  }
+  function change(
+    action: (map: Mindmap, node: typeof current) => typeof current.node | void,
+    group?: string,
+  ) {
     let selectedNode: typeof current.node | undefined;
+    let foldedNodes: (typeof current.node)[] = [];
     const result = editMap(parsed.map!, parsed.relations, (next) => {
-      const row = flatten(next).find((r) => r.path === current.path)!;
-      selectedNode = row.node;
-      action(next, row);
+      const nextRows = flatten(next);
+      const row = nextRows.find((r) => r.path === current.path)!;
+      foldedNodes = nextRows
+        .filter((r) => collapsed.has(r.path))
+        .map((r) => r.node);
+      selectedNode = action(next, row) ?? row.node;
     });
-    setSelected(
-      flatten(result.map).find((r) => r.node === selectedNode)?.path ?? "",
-    );
     setLinkTarget("");
-    save(result.map, result.relations);
+    save(
+      result.map,
+      result.relations,
+      remapPresentation(result.map, selectedNode, foldedNodes),
+      group,
+    );
   }
   function travel(back: boolean) {
-    const source = back ? undo : redo,
-      target = back ? redo : undo;
-    const entry = source.current.pop();
+    const entry = history.current.travel(state(), back);
     if (!entry) return;
-    target.current.push({ opml, relationsText });
+    setSelected(entry.selected);
+    setCollapsed(new Set(entry.collapsed));
+    setLinkTarget("");
+    setMapError("");
     onChange({
       [`${stem}.opml`]: entry.opml,
       [`${stem}.relations.yaml`]: entry.relationsText,
@@ -167,24 +218,55 @@ function MapEditor({
     change((map, row) => {
       const siblings = flatten(map).find((r) => r.path === row.parent)!.node
         .children;
-      siblings.splice(siblings.indexOf(row.node) + 1, 0, topic("新想法"));
+      const added = topic("新想法");
+      siblings.splice(siblings.indexOf(row.node) + 1, 0, added);
+      return added;
     });
+  }
+  const moveOptions = treeMoveOptions(parsed.map, current.path);
+  function moveNode(direction: TreeMove) {
+    if (moveOptions[direction])
+      change((map, row) => {
+        moveTreeNode(map, row.path, direction);
+      });
   }
   return (
     <div
       className="map-editor"
       onKeyDown={(e) => {
-        if ((e.target as HTMLElement).matches("input,textarea,select")) return;
-        if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "y")) {
+        if (
+          (e.target as HTMLElement).closest(
+            "input,textarea,select,[contenteditable=true]",
+          )
+        )
+          return;
+        const action = mapShortcut(
+          {
+            key: e.key,
+            ctrlKey: e.ctrlKey,
+            metaKey: e.metaKey,
+            altKey: e.altKey,
+            shiftKey: e.shiftKey,
+            isComposing: e.nativeEvent.isComposing,
+          },
+          e.target === canvas.current,
+        );
+        if (action) {
           e.preventDefault();
-          travel(e.key === "z");
+          e.stopPropagation();
+          if (action === "undo" || action === "redo") travel(action === "undo");
+          else moveNode(action);
         }
       }}
     >
       <div className="map-tools">
         <button
           onClick={() =>
-            change((_map, row) => row.node.children.push(topic("新想法")))
+            change((_map, row) => {
+              const added = topic("新想法");
+              row.node.children.push(added);
+              return added;
+            })
           }
         >
           ＋ 子节点
@@ -200,6 +282,7 @@ function MapEditor({
                 (r) => r.path === row.parent,
               )!.node;
               parent.children = parent.children.filter((n) => n !== row.node);
+              return parent;
             })
           }
         >
@@ -220,14 +303,50 @@ function MapEditor({
         </button>
         <button onClick={() => travel(true)}>撤销</button>
         <button onClick={() => travel(false)}>重做</button>
+        <button disabled={!moveOptions.up} onClick={() => moveNode("up")}>
+          上移
+        </button>
+        <button disabled={!moveOptions.down} onClick={() => moveNode("down")}>
+          下移
+        </button>
+        <button
+          disabled={!moveOptions.indent}
+          onClick={() => moveNode("indent")}
+        >
+          缩进一级
+        </button>
+        <button
+          disabled={!moveOptions.outdent}
+          onClick={() => moveNode("outdent")}
+        >
+          提升一级
+        </button>
       </div>
-      <div className="map-canvas" aria-label="思维导图画布">
+      {mapError && (
+        <div className="notice error" role="alert">
+          {mapError}
+        </div>
+      )}
+      <p className="map-hint">
+        选中：{current.node.text} · 画布聚焦时 Alt + ↑↓ 排序、←→ 改层级；Ctrl+Z
+        / Ctrl+Y 撤销重做。
+      </p>
+      <div
+        ref={canvas}
+        tabIndex={0}
+        className="map-canvas"
+        aria-label="思维导图画布"
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodesDraggable={false}
           nodesConnectable={false}
-          onNodeClick={(_event, node) => setSelected(node.id)}
+          onNodeClick={(_event, node) => {
+            history.current.breakGroup();
+            setSelected(node.id);
+            canvas.current?.focus();
+          }}
           fitView
           minZoom={0.2}
           deleteKeyCode={null}
@@ -242,11 +361,13 @@ function MapEditor({
           <input
             aria-label="节点标题"
             value={current.node.text}
+            onFocus={() => history.current.breakGroup()}
+            onBlur={() => history.current.breakGroup()}
             onChange={(e) => {
               if (e.target.value.trim())
                 change((_map, row) => {
                   row.node.text = e.target.value;
-                });
+                }, "title");
             }}
           />
         </label>
@@ -255,13 +376,40 @@ function MapEditor({
           <textarea
             aria-label="节点正文"
             value={current.node.body}
+            onFocus={() => history.current.breakGroup()}
+            onBlur={() => history.current.breakGroup()}
             onChange={(e) =>
               change((_map, row) => {
                 row.node.body = e.target.value;
-              })
+              }, "body")
             }
             placeholder="补充想法，支持 Markdown 文本"
           />
+        </label>
+        <label>
+          节点类型
+          <select
+            aria-label="节点类型"
+            value={current.node.type}
+            onChange={(e) =>
+              change((_map, row) => {
+                row.node.type = e.target.value;
+              })
+            }
+          >
+            {!["topic", "heading", "claim", "example", "question"].includes(
+              current.node.type,
+            ) && (
+              <option value={current.node.type}>
+                {current.node.type}（已有类型）
+              </option>
+            )}
+            <option value="topic">主题</option>
+            <option value="heading">标题</option>
+            <option value="claim">观点</option>
+            <option value="example">例子</option>
+            <option value="question">问题</option>
+          </select>
         </label>
         <div className="relation-controls">
           <select
@@ -395,8 +543,12 @@ function App() {
         .register("/sw.js")
         .catch((e) => setError("离线界面缓存失败：" + e));
   }, []);
-  function update(changes: Record<string, string>) {
-    const nextFiles = { ...filesRef.current, ...changes };
+  function update(changes: Record<string, string | undefined>) {
+    const nextFiles = { ...filesRef.current };
+    for (const [path, value] of Object.entries(changes)) {
+      if (value === undefined) delete nextFiles[path];
+      else nextFiles[path] = value;
+    }
     filesRef.current = nextFiles;
     setFiles(nextFiles);
     setMessage("正在保存本机…");
@@ -667,7 +819,7 @@ function App() {
             <MapEditor
               key={active}
               opml={files[active + ".opml"]}
-              relationsText={files[active + ".relations.yaml"] ?? ""}
+              relationsText={files[active + ".relations.yaml"]}
               stem={active}
               onChange={update}
             />

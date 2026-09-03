@@ -398,6 +398,15 @@ h1 {
   border-block: 1px solid var(--line);
   background: #f9fbf7;
 }
+.map-canvas:focus-visible {
+  outline: 2px solid #6d9b7e;
+  outline-offset: -2px;
+}
+.map-hint {
+  padding: 0 12px;
+  font-size: 11px;
+  color: #7b8973;
+}
 .node-details {
   padding: 16px;
   display: grid;
