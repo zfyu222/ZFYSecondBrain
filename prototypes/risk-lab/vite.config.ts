@@ -4,6 +4,12 @@ import { createHash } from "node:crypto";
 import { offlineAssets, offlineShell } from "./server/offline-shell";
 
 export default defineConfig({
+  server: {
+    watch: {
+      ignored: ["**/.prototype-data/**"],
+      followSymlinks: false,
+    },
+  },
   plugins: [
     react(),
     {
