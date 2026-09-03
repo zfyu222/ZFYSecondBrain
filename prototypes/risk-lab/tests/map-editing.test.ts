@@ -79,7 +79,7 @@ describe("mindmap structural editing", () => {
     const restored = editMap(nested.map, nested.relations, (copy) => {
       moveTreeNode(copy, "/根[1]/同名[1]/同名[1]", "outdent");
     });
-    expect(restored).toEqual({ map, relations });
+    expect(restored).toEqual({ map, relations, relationOrigins: [0, 1] });
   });
   it("moves the whole subtree down, preserving child order and all attributes", () => {
     const { map, relations } = fixture();

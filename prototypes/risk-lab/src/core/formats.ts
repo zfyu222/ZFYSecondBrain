@@ -1,5 +1,5 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
-import { parseDocument, stringify } from "yaml";
+import { parseDocument, stringify, isMap, isSeq, isScalar } from "yaml";
 import { z } from "zod";
 
 export type Topic = {
@@ -86,18 +86,26 @@ export function editMap(
   map: Mindmap,
   relations: Relation[],
   action: (map: Mindmap) => void,
-): { map: Mindmap; relations: Relation[] } {
+): { map: Mindmap; relations: Relation[]; relationOrigins: number[] } {
   const next = structuredClone(map);
   const oldPaths = new Map(flatten(next).map((row) => [row.node, row.path]));
   action(next);
   const remap = new Map(
     flatten(next).map((row) => [oldPaths.get(row.node), row.path]),
   );
+  const surviving = relations
+    .map((relation, index) => ({ relation, index }))
+    .filter(
+      ({ relation }) => remap.has(relation.from) && remap.has(relation.to),
+    );
   return {
     map: next,
-    relations: relations
-      .filter((r) => remap.has(r.from) && remap.has(r.to))
-      .map((r) => ({ ...r, from: remap.get(r.from)!, to: remap.get(r.to)! })),
+    relations: surviving.map(({ relation: r }) => ({
+      ...r,
+      from: remap.get(r.from)!,
+      to: remap.get(r.to)!,
+    })),
+    relationOrigins: surviving.map(({ index }) => index),
   };
 }
 const attrEscape = (s: string) =>
@@ -258,10 +266,67 @@ export function parseRelations(text: string, map: Mindmap): Relation[] {
 export function serializeRelations(
   mapPath: string,
   relations: Relation[],
+  source?: { text: string; indices: (number | null)[] },
 ): string {
-  return stringify({
+  const desired = relationsSchema.parse({
     version: 1,
     map: `./${mapPath.split("/").pop()}`,
     relations,
   });
+  if (!source) return stringify(desired);
+  if (source.indices.length !== relations.length)
+    throw new Error("关系来源数量不一致，原文未修改");
+  if (!source.text.trim()) {
+    if (source.indices.some((index) => index !== null))
+      throw new Error("空关系文件没有可复用的来源");
+    return relations.length ? stringify(desired) : source.text;
+  }
+  const original = relationsSchema.parse(safeYaml(source.text));
+  const used = new Set<number>();
+  for (const index of source.indices) {
+    if (index === null) continue;
+    if (
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= original.relations.length ||
+      used.has(index)
+    )
+      throw new Error("关系来源无效或重复，原文未修改");
+    used.add(index);
+  }
+  if (
+    JSON.stringify(original) === JSON.stringify(desired) &&
+    source.indices.every((index, position) => index === position)
+  )
+    return source.text;
+  const doc = parseDocument(source.text);
+  const sequence = doc.get("relations", true);
+  if (!isSeq(sequence)) throw new Error("关系列表不是可保留的 YAML 序列");
+  const oldItems = [...sequence.items];
+  sequence.items = relations.map((relation, position) => {
+    const index = source.indices[position];
+    if (index === null) return doc.createNode(relation);
+    const item = oldItems[index];
+    if (!isMap(item)) throw new Error("关系项不是可保留的 YAML 映射");
+    for (const field of ["from", "to", "type", "status"] as const) {
+      const scalar = item.get(field, true);
+      if (!isScalar(scalar)) throw new Error("关系字段不是可保留的标量");
+      // Update values in place so inline comments, quoting and node comments survive.
+      scalar.value = relation[field];
+    }
+    return item;
+  });
+  const mapNode = doc.get("map", true);
+  if (!isScalar(mapNode)) throw new Error("关系 map 不是可保留的标量");
+  mapNode.value = desired.map;
+  const text = String(doc).replace(
+    /\r?\n/g,
+    source.text.includes("\r\n") ? "\r\n" : "\n",
+  );
+  if (
+    JSON.stringify(relationsSchema.parse(safeYaml(text))) !==
+    JSON.stringify(desired)
+  )
+    throw new Error("关系序列化校验失败，原文未修改");
+  return text;
 }

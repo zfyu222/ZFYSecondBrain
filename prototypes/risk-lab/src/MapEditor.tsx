@@ -50,7 +50,7 @@ export default function MapEditor({
         error: "",
       };
     } catch (e) {
-      return { map: null, relations: [], error: String(e) };
+      return { map: null, relations: [] as Relation[], error: String(e) };
     }
   }, [opml, relationsText]);
   const [selected, setSelected] = useState("");
@@ -129,12 +129,27 @@ export default function MapEditor({
     relations: Relation[],
     presentation = { selected: current.path, collapsed: [...collapsed] },
     group?: string,
+    relationOrigins?: number[],
   ) {
     try {
       const nextOpml = serializeOpml(map);
       const nextRelations =
         relationsText !== undefined || relations.length
-          ? serializeRelations(`${stem}.opml`, relations)
+          ? serializeRelations(
+              `${stem}.opml`,
+              relations,
+              relationsText === undefined
+                ? undefined
+                : {
+                    text: relationsText,
+                    indices:
+                      relationOrigins ??
+                      relations.map((relation) => {
+                        const index = parsed.relations.indexOf(relation);
+                        return index < 0 ? null : index;
+                      }),
+                  },
+            )
           : undefined;
       const checked = parseOpml(nextOpml);
       parseRelations(nextRelations ?? "", checked);
@@ -174,6 +189,7 @@ export default function MapEditor({
       result.relations,
       remapPresentation(result.map, selectedNode, foldedNodes),
       group,
+      result.relationOrigins,
     );
   }
   function travel(back: boolean) {
