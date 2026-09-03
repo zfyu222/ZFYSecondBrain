@@ -155,16 +155,23 @@ export function serializeOpml(map: Mindmap): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0"${attributes}>\n  <head><title>${attrEscape(map.title)}</title>${head}</head>\n  <body>\n${outline(map.root, 2)}\n  </body>\n</opml>\n`;
 }
 export function parseOpml(xml: string): Mindmap {
-  if (xml.length > 2_000_000 || /<!DOCTYPE|<!ENTITY|<!--/i.test(xml))
+  // A UTF-8 BOM is part of the source bytes, but not an XML content node.
+  // Keep callers' source untouched and remove it only for parser input.
+  const parserInput = xml.startsWith("\uFEFF") ? xml.slice(1) : xml;
+  if (
+    parserInput.length > 2_000_000 ||
+    /<!DOCTYPE|<!ENTITY|<!--/i.test(parserInput)
+  )
     throw new Error("原型不支持 DTD、实体声明或 XML 注释，原文未修改");
-  if (XMLValidator.validate(xml) !== true) throw new Error("OPML XML 无效");
+  if (XMLValidator.validate(parserInput) !== true)
+    throw new Error("OPML XML 无效");
   const parsed = new XMLParser({
     ignoreAttributes: false,
     parseTagValue: false,
     trimValues: false,
     htmlEntities: true,
     isArray: (name) => name === "outline",
-  }).parse(xml);
+  }).parse(parserInput);
   if (Object.keys(parsed).some((k) => !["opml", "?xml"].includes(k)))
     throw new Error("不支持的 XML 顶层内容");
   const declaration = parsed["?xml"];

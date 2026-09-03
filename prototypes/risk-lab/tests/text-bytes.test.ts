@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { FileStore } from "../server/store";
 import { restorePrototype } from "../server/restore";
 import { inspectMarkdown } from "../src/core/preview";
+import { serializeOpml, serializeRelations, topic } from "../src/core/formats";
 
 const note = "raw/Inbox/a.md";
 const text = "\uFEFF---\r\ntitle: 文件标记\r\n---\r\n# 标题\r\n\r\n中文 😀\r\n";
@@ -119,6 +120,28 @@ describe("original UTF-8 byte preservation", () => {
     expect(after.files[note]).toBe(content);
     expect(await fs.readFile(path.join(store.root, note))).toEqual(
       Buffer.from(content),
+    );
+  });
+  it("accepts and retains standard BOM-prefixed OPML and relation YAML", async () => {
+    const store = await fixture();
+    const opml = "raw/Inbox/map.opml";
+    const yaml = "raw/Inbox/map.relations.yaml";
+    const map = { title: "导图", root: topic("根") };
+    const files = {
+      [opml]: "\uFEFF" + serializeOpml(map).replaceAll("\n", "\r\n"),
+      [yaml]: "\uFEFF" + serializeRelations(opml, []).replaceAll("\n", "\r\n"),
+    };
+    const after = await store.commit({
+      requestId: "bom-map-and-relations",
+      expectedRevision: (await store.snapshot()).revision,
+      files,
+    });
+    expect(after.files).toEqual(files);
+    expect(await fs.readFile(path.join(store.root, opml))).toEqual(
+      Buffer.from(files[opml]),
+    );
+    expect(await fs.readFile(path.join(store.root, yaml))).toEqual(
+      Buffer.from(files[yaml]),
     );
   });
 });
