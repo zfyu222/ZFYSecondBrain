@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { FileStore } from "./store";
 import { ledgerSchema } from "./journal";
 import { validateFiles } from "../src/core/contracts";
+import { noLinkedAncestors } from "./safe-path";
 
 export const backupScopes = {
   minimal: ["raw"],
@@ -29,17 +30,6 @@ async function stat(file: string) {
     if (error.code !== "ENOENT") throw error;
     return undefined;
   });
-}
-async function noLinkedAncestors(file: string) {
-  let current = path.parse(file).root;
-  for (const part of path
-    .relative(current, file)
-    .split(path.sep)
-    .filter(Boolean)) {
-    current = path.join(current, part);
-    if ((await stat(current))?.isSymbolicLink())
-      throw new Error("恢复路径不能经过符号链接");
-  }
 }
 
 type Entry = { relative: string; digest: string | null; size: number };

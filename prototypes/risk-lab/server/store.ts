@@ -12,6 +12,7 @@ import { moveNote } from "../src/core/paths";
 import { sampleFiles } from "../src/core/seed";
 import { validateMoves } from "../src/core/moves";
 import { journalSchema, ledgerSchema, type Ledger } from "./journal";
+import { noLinkedAncestors, noLinkedFile } from "./safe-path";
 
 const digest = (data: unknown) =>
   createHash("sha256").update(JSON.stringify(data)).digest("hex");
@@ -68,6 +69,8 @@ export class FileStore {
   private async atomicJson(name: string, data: unknown) {
     const dest = path.join(this.root, "state", name),
       temp = `${dest}.tmp`;
+    await noLinkedFile(dest);
+    await noLinkedFile(temp);
     const handle = await fs.open(temp, "w");
     try {
       await handle.writeFile(JSON.stringify(data, null, 2));
@@ -79,6 +82,7 @@ export class FileStore {
   }
   private async ledger(): Promise<Ledger> {
     try {
+      await noLinkedFile(path.join(this.root, "state", "ledger.json"));
       return ledgerSchema.parse(
         JSON.parse(
           await fs.readFile(
@@ -97,6 +101,7 @@ export class FileStore {
   }
   private async movements(): Promise<MoveRecord[]> {
     try {
+      await noLinkedFile(path.join(this.root, "state", "moves.json"));
       const data = JSON.parse(
         await fs.readFile(path.join(this.root, "state", "moves.json"), "utf8"),
       );
@@ -111,6 +116,7 @@ export class FileStore {
   }
   async init(seed = true) {
     this.root = path.resolve(this.root);
+    await noLinkedAncestors(this.root);
     const incomplete = await fs
       .lstat(path.join(this.root, ".restore-incomplete"))
       .catch((e: NodeJS.ErrnoException) => {
@@ -124,6 +130,7 @@ export class FileStore {
     await fs.mkdir(this.root, { recursive: true });
     const marker = path.join(this.root, ".risk-lab");
     try {
+      await noLinkedFile(marker);
       if ((await fs.readFile(marker, "utf8")) !== "risk-lab-v1")
         throw new Error("未知原型目录");
     } catch (e) {
@@ -204,6 +211,7 @@ export class FileStore {
       else {
         await fs.mkdir(path.dirname(dest), { recursive: true });
         const temp = `${dest}.risk-tmp`;
+        await noLinkedFile(temp);
         const handle = await fs.open(temp, "w");
         try {
           await handle.writeFile(files[rel]);
@@ -221,6 +229,7 @@ export class FileStore {
     const journalPath = path.join(this.root, "state", "journal.json");
     let journal: Journal;
     try {
+      await noLinkedFile(journalPath);
       journal = journalSchema.parse(
         JSON.parse(await fs.readFile(journalPath, "utf8")),
       );
@@ -276,7 +285,7 @@ export class FileStore {
       throw new RejectedError(String(e));
     }
     const ledgerBefore = await this.ledger();
-    if (ledgerBefore[change.requestId]) {
+    if (Object.hasOwn(ledgerBefore, change.requestId)) {
       if (ledgerBefore[change.requestId].fingerprint !== fingerprint)
         throw new Error("幂等键不能用于不同请求");
       return ledgerBefore[change.requestId].result;
@@ -348,7 +357,10 @@ export class FileStore {
     return this.exclusive(async () => {
       await this.recover();
       const fingerprint = digest({ kind: "move", ...input });
-      const previous = (await this.ledger())[input.requestId];
+      const ledger = await this.ledger();
+      const previous = Object.hasOwn(ledger, input.requestId)
+        ? ledger[input.requestId]
+        : undefined;
       if (previous) {
         if (previous.fingerprint !== fingerprint)
           throw new Error("幂等键不能用于不同请求");
