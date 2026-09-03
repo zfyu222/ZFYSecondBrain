@@ -116,7 +116,12 @@ function App() {
     rememberOpened(active);
     saveFailure.current = false;
     setError("");
-    setMessage("已载入本机数据");
+    if (!offline && navigator.onLine) {
+      setMessage("已载入本机数据 · 正在自动同步…");
+      void sync();
+    } else {
+      setMessage("已载入本机数据 · 等待网络同步");
+    }
   }
   useEffect(() => {
     void reload().catch((e) => setError(String(e)));
