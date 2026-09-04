@@ -4,9 +4,9 @@
 
 ## 当前状态
 
-项目仓库已完成初始化、首版范围和技术设计；现有独立本地原型可体验 Markdown/导图编辑、持久化、同步与部分路径移动。尚不是正式首版，不连接真实知识库、AI 或 NAS。
+项目仓库已完成初始化、首版范围和技术设计；现有独立本地原型可体验 Markdown/导图编辑、持久化、同步与部分路径移动。尚不是正式首版，不连接真实知识库、AI 或 Linux 服务器。
 
-目标客户端为 Web、安卓和 Windows，优先支持 Web；服务端计划自托管于用户的群晖 NAS。
+目标客户端为 Web、安卓和 Windows，优先支持 Web；服务端计划自托管于用户自己的 Linux 服务器。
 
 首版限定单用户、单知识库，包含 Markdown/思维导图编辑、必要离线与同步、独立 AI 管理员及每日记忆整理。完整分层图谱、原生客户端和安卓控件后续实施，不混入可选想法池。
 
@@ -43,7 +43,7 @@ pnpm preview:prototype
 - [笔记模板](docs/requirements/note-templates.md)
 - [安卓今日 Inbox 桌面控件](docs/requirements/android-inbox-widget.md)
 - [撤销、历史记录与备份恢复](docs/requirements/history-and-recovery.md)
-- [客户端平台与 NAS 部署](docs/requirements/platforms-and-deployment.md)
+- [客户端平台与 Linux 服务器部署](docs/requirements/platforms-and-deployment.md)
 - [进阶想法池：候选方向，不承诺实现](docs/advanced-ideas.md)
 
 ## 原则

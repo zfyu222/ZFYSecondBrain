@@ -20,6 +20,6 @@ export function sampleFiles(): Record<string, string> {
       },
     ]),
     "raw/Areas/原型说明.md":
-      "# 原型说明\n\n返回 [[raw/Inbox/开始使用#今天想验证什么|开始使用]]。\n\n本地服务只允许 localhost 访问，不连接真实 NAS。\n",
+      "# 原型说明\n\n返回 [[raw/Inbox/开始使用#今天想验证什么|开始使用]]。\n\n本地服务只允许 localhost 访问，不连接真实 Linux 服务器。\n",
   };
 }
