@@ -101,6 +101,15 @@ describe("readable movement replay", () => {
       "raw/Projects/减脂/睡眠/记录.assets/图.png",
     );
   });
+  it("refuses to move a folder into its own descendant", () => {
+    expect(() =>
+      moveNote(
+        { "raw/Areas/健康/睡眠/记录.md": "内容" },
+        "raw/Areas/健康",
+        "raw/Areas/健康/睡眠/归档",
+      ),
+    ).toThrow("自身内部");
+  });
   it("replays a chain on both baseline and local changes, including references", () => {
     const base = snapshot({ [a]: "original", [ref]: "[[raw/Inbox/a]]" });
     const aligned = alignMoves(

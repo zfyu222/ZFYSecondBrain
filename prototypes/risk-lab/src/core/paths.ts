@@ -281,6 +281,8 @@ export function movePath(
     (documentMove && (!from.endsWith(".md") || !to.endsWith(".md")))
   )
     throw new Error("移动入口需要同类且不同的文档或目录路径");
+  if (!documentMove && to.startsWith(from + "/"))
+    throw new Error("不能将目录移动到自身内部");
   if (requireSource && !documentMove && !Object.keys(files).some((path) => path.startsWith(from + "/")))
     throw new Error("源目录不存在或为空");
   if (requireSource && documentMove && !(from in files))
