@@ -182,7 +182,8 @@ export async function moveToTrash(
       (path) =>
         path === stem + ".md" ||
         path === stem + ".opml" ||
-        path === stem + ".relations.yaml",
+        path === stem + ".relations.yaml" ||
+        path === stem + ".note.yaml",
     );
     if (!paths.length) throw new Error("当前文档不存在");
     const attachmentPaths = Object.keys(row.attachments ?? {}).filter((path) =>

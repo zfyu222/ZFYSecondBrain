@@ -121,6 +121,7 @@ describe("local persistence and sync queue", () => {
         [p]: "note",
         "raw/Inbox/a.opml":
           '<?xml version="1.0"?><opml version="2.0"><head><title>A</title></head><body><outline text="A" /></body></opml>',
+        "raw/Inbox/a.note.yaml": "version: 1\n",
       },
       attachments: {
         "raw/Inbox/a.assets/p.png": { encoding: "base64", data: "AA==" },
@@ -133,9 +134,11 @@ describe("local persistence and sync queue", () => {
       "2026-09-04T02:00:00.000Z",
     );
     expect(trashed.files[p]).toBeUndefined();
+    expect(trashed.files["raw/Inbox/a.note.yaml"]).toBeUndefined();
     const entry = (await db.trash.toArray())[0];
     const restored = await restoreTrashEntry(db, trashed.version, entry.id);
     expect(restored.files[p]).toBe("note");
+    expect(restored.files["raw/Inbox/a.note.yaml"]).toBe("version: 1\n");
     expect(restored.attachments?.["raw/Inbox/a.assets/p.png"]?.data).toBe(
       "AA==",
     );
