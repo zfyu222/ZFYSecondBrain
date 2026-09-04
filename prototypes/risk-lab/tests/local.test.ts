@@ -47,6 +47,23 @@ describe("local persistence and sync queue", () => {
     await db.open();
     expect((await db.read()).files[p]).toBe("offline");
   });
+  it("keeps the previous Markdown as history before accepting an external edit", async () => {
+    const db = await fixture();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          revision: "external",
+          files: { [p]: "external edit" },
+        }),
+      ),
+    );
+    const synced = await synchronize(db);
+    expect(synced.files[p]).toBe("external edit");
+    expect((await documentHistory(db, p)).map((point) => point.content)).toEqual([
+      "base",
+    ]);
+  });
   it("keeps a coarse pre-edit Markdown history point at most every 30 minutes", async () => {
     const db = await fixture();
     const first = await saveFilesWithHistory(

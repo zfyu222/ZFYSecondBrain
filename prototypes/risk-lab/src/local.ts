@@ -263,18 +263,27 @@ export async function saveFilesWithHistory(
       throw new Error(
         "另一个标签页已修改本机数据。当前草稿仍在编辑器，可先导出，再重新载入。",
       );
-    for (const [path, content] of Object.entries(row.files)) {
-      if (files[path] === content || !path.endsWith(".md")) continue;
-      const prior = (
-        await db.history.where("path").equals(path).toArray()
-      ).sort((a, b) => b.at.localeCompare(a.at))[0];
-      if (!prior || Date.parse(at) - Date.parse(prior.at) >= 30 * 60_000)
-        await db.history.add({ id: crypto.randomUUID(), path, at, content });
-    }
+    await preserveChangedMarkdown(db, row.files, files, at);
     const next = { ...structuredClone(row), files, version: row.version + 1 };
     await db.vault.put(next);
     return next;
   });
+}
+
+async function preserveChangedMarkdown(
+  db: LocalVault,
+  before: Record<string, string>,
+  after: Record<string, string>,
+  at: string,
+) {
+  for (const [path, content] of Object.entries(before)) {
+    if (after[path] === content || !path.endsWith(".md")) continue;
+    const prior = (
+      await db.history.where("path").equals(path).toArray()
+    ).sort((a, b) => b.at.localeCompare(a.at))[0];
+    if (!prior || Date.parse(at) - Date.parse(prior.at) >= 30 * 60_000)
+      await db.history.add({ id: crypto.randomUUID(), path, at, content });
+  }
 }
 
 export async function documentHistory(db: LocalVault, path: string) {
@@ -474,20 +483,36 @@ export async function synchronize(db: LocalVault): Promise<LocalState> {
         ),
       }));
     validateContent(result.files, attachmentResult.attachments);
-    row = await db.update(row.version, (r) => ({
-      ...r,
-      files: result.files,
-      attachments: attachmentResult.attachments,
-      base: remote,
-      pending: {
-        requestId: crypto.randomUUID(),
-        expectedRevision: remote.revision,
-        moveSequence: moveSequence(remote),
+    row = await db.transaction("rw", db.vault, db.history, async () => {
+      const current = await db.vault.get("vault");
+      if (!current || current.version !== row.version)
+        throw new Error(
+          "另一个标签页已修改本机数据。当前草稿仍在编辑器，可先导出，再重新载入。",
+        );
+      await preserveChangedMarkdown(
+        db,
+        current.files,
+        result.files,
+        new Date().toISOString(),
+      );
+      const next: LocalState = {
+        ...current,
+        version: current.version + 1,
         files: result.files,
-        protocolVersion: 2,
         attachments: attachmentResult.attachments,
-      },
-    }));
+        base: remote,
+        pending: {
+          requestId: crypto.randomUUID(),
+          expectedRevision: remote.revision,
+          moveSequence: moveSequence(remote),
+          files: result.files,
+          protocolVersion: 2,
+          attachments: attachmentResult.attachments,
+        },
+      };
+      await db.vault.put(next);
+      return next;
+    });
   }
   const pending = row.pending!;
   const response = await fetch("/api/commit", {
