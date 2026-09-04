@@ -37,6 +37,7 @@ import {
   setNoteTags,
 } from "./core/note-metadata";
 import { matchesNoteSearch } from "./core/search";
+import { isTemplateStem, templateName } from "./core/templates";
 import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
@@ -81,6 +82,7 @@ function App() {
     [query, setQuery] = useState("");
   const [includeArchive, setIncludeArchive] = useState(false);
   const [space, setSpace] = useState<Space>("all");
+  const [selectedTemplate, setSelectedTemplate] = useState("");
   const [tagDraft, setTagDraft] = useState("");
   const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
   const [trashEntries, setTrashEntries] = useState<TrashEntry[]>([]);
@@ -383,7 +385,12 @@ function App() {
     setView(kind);
     update(
       kind === "markdown"
-        ? { [`${stem}.md`]: "# 随手记\n\n" }
+        ? {
+            [`${stem}.md`]:
+              selectedTemplate && filesRef.current[selectedTemplate + ".md"]
+                ? filesRef.current[selectedTemplate + ".md"]
+                : "# 随手记\n\n",
+          }
         : {
             [`${stem}.opml`]: serializeOpml({
               title: "随手记",
@@ -391,6 +398,17 @@ function App() {
             }),
           },
     );
+    rememberOpened(stem);
+  }
+  function newTemplate() {
+    if (rowRef.current?.conflict || rowRef.current?.pendingMove) return;
+    const stem = `raw/Areas/_templates/模板-${new Date()
+      .toISOString()
+      .replace(/[-:TZ.]/g, "")
+      .slice(0, 17)}`;
+    setActive(stem);
+    setView("markdown");
+    update({ [`${stem}.md`]: "# 新模板\n\n在这里写下新笔记的起点。\n" });
     rememberOpened(stem);
   }
   function rememberOpened(path: string) {
@@ -437,13 +455,17 @@ function App() {
       setError(String(error));
     }
   }
+  const allMarkdownStems = Object.keys(files)
+    .filter((path) => path.endsWith(".md"))
+    .map((path) => path.slice(0, -3));
+  const templateStems = allMarkdownStems.filter(isTemplateStem);
   const notes = [
     ...new Set(
       Object.keys(files)
         .filter((p) => /\.(md|opml)$/.test(p))
         .map((p) => p.replace(/\.(md|opml)$/, "")),
     ),
-  ];
+  ].filter((stem) => !isTemplateStem(stem));
   const title = active.split("/").pop();
   const hasMd = `${active}.md` in files,
     hasMap = `${active}.opml` in files;
@@ -516,6 +538,32 @@ function App() {
           <button disabled={editingLocked} onClick={() => newNote("map")}>
             ＋ 导图
           </button>
+          <button disabled={editingLocked} onClick={newTemplate}>
+            ＋ 模板
+          </button>
+        </div>
+        <div className="template-picker">
+          <select
+            aria-label="新笔记模板"
+            value={selectedTemplate}
+            disabled={editingLocked}
+            onChange={(event) => setSelectedTemplate(event.target.value)}
+          >
+            <option value="">空白笔记</option>
+            {templateStems.map((stem) => (
+              <option key={stem} value={stem}>
+                模板：{templateName(stem)}
+              </option>
+            ))}
+          </select>
+          {selectedTemplate && (
+            <button
+              disabled={editingLocked}
+              onClick={() => openNote(selectedTemplate, "markdown")}
+            >
+              编辑模板
+            </button>
+          )}
         </div>
         <input
           className="search"

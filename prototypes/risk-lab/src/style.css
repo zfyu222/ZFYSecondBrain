@@ -107,6 +107,24 @@ select:focus-visible {
 .new-buttons button {
   flex: 1;
 }
+.template-picker {
+  display: flex;
+  gap: 6px;
+}
+.template-picker select {
+  min-width: 0;
+  flex: 1;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: #46564c;
+  font-size: 11px;
+}
+.template-picker button {
+  padding: 6px 8px;
+  font-size: 11px;
+}
 .search {
   width: 100%;
   background: #f8faf6;
