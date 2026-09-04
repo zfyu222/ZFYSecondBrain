@@ -185,6 +185,11 @@ function App() {
     return () => window.removeEventListener("online", onOnline);
   }, [offline]);
   useEffect(() => {
+    if (offline) return;
+    const timer = window.setInterval(() => void sync(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [offline]);
+  useEffect(() => {
     if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
     let cancelled = false;
     let cleanup: (() => void) | undefined;
