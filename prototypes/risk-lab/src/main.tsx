@@ -168,6 +168,16 @@ function App() {
     filesRef.current = next.files;
     setFiles(next.files);
   }
+  function recordNotification(
+    level: NotificationEntry["level"],
+    notification: string,
+  ) {
+    void addNotification(db, level, notification)
+      .then((entry) =>
+        setNotifications((items) => [entry, ...items].slice(0, 30)),
+      )
+      .catch((error) => setError(String(error)));
+  }
   async function reload() {
     if (saveFailure.current)
       download(
@@ -264,6 +274,13 @@ function App() {
       const next = await synchronize(db);
       accept(next);
       setLastCheckedAt(new Date());
+      if (next.conflict && !before?.conflict)
+        recordNotification("error", "检测到同步冲突，需要选择保留版本");
+      else if (
+        !hadLocalChanges &&
+        before?.base?.revision !== next.base?.revision
+      )
+        recordNotification("info", "已载入服务器上的外部文件修改");
       setMessage(
         next.conflict
           ? "检测到冲突 · 请保留一版"
@@ -277,7 +294,7 @@ function App() {
     } catch (e) {
       setError(String(e));
       setMessage("同步失败 · 本机数据保留");
-      void addNotification(db, "error", "同步失败：" + String(e));
+      recordNotification("error", "同步失败：" + String(e));
       if (!saveFailure.current) accept(await db.read());
     } finally {
       operationBusy.current = false;
@@ -295,7 +312,7 @@ function App() {
       setMessage("选择已保存，请再次同步");
     } catch (e) {
       setError(String(e));
-      void addNotification(db, "error", "冲突选择未保存：" + String(e));
+      recordNotification("error", "冲突选择未保存：" + String(e));
     } finally {
       operationBusy.current = false;
       setBusy(false);
