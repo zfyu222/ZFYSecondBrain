@@ -571,20 +571,22 @@ function App() {
     } catch {
       // A malformed optional title must not prevent the user from keeping a map.
     }
+    const markdown = filesRef.current[active + ".md"];
+    const opml = serializeOpml(mapFromMarkdown(mapTitle, markdown));
     update({
-      [`${active}.opml`]: serializeOpml(
-        mapFromMarkdown(mapTitle, filesRef.current[active + ".md"]),
-      ),
+      [`${active}.opml`]: opml,
+      [`${active}.note.yaml`]: recordDualView(markdown, opml, new Date().toISOString()),
     });
     setView("map");
   }
   function enableMarkdownView() {
     if (!hasMap || hasMd || editingLocked) return;
     try {
+      const opml = filesRef.current[active + ".opml"];
+      const markdown = markdownFromMap(parseOpml(opml));
       update({
-        [`${active}.md`]: markdownFromMap(
-          parseOpml(filesRef.current[active + ".opml"]),
-        ),
+        [`${active}.md`]: markdown,
+        [`${active}.note.yaml`]: recordDualView(markdown, opml, new Date().toISOString()),
       });
       setView("markdown");
     } catch (error) {
@@ -600,6 +602,37 @@ function App() {
         new Date().toISOString(),
       ),
     });
+  }
+  function syncDualView(source: "markdown" | "map") {
+    if (!hasMd || !hasMap || editingLocked) return;
+    try {
+      const markdown = filesRef.current[active + ".md"];
+      const opml = filesRef.current[active + ".opml"];
+      let nextMarkdown = markdown;
+      let nextOpml = opml;
+      let changedView: Record<string, string>;
+
+      if (source === "markdown") {
+        nextOpml = serializeOpml(
+          mapFromMarkdown(documentTitle(filesRef.current, active), markdown),
+        );
+        changedView = { [active + ".opml"]: nextOpml };
+      } else {
+        nextMarkdown = markdownFromMap(parseOpml(opml));
+        changedView = { [active + ".md"]: nextMarkdown };
+      }
+
+      update({
+        ...changedView,
+        [active + ".note.yaml"]: recordDualView(
+          nextMarkdown,
+          nextOpml,
+          new Date().toISOString(),
+        ),
+      });
+    } catch (error) {
+      setError(String(error));
+    }
   }
   function changeSoftLinks(nextLinks: string[]) {
     const path = active + ".md";
@@ -1126,11 +1159,13 @@ function App() {
             </button>
           )}
           {hasMd && hasMap && (
-            <button disabled={editingLocked} onClick={recordDualBaseline}>
-              记录当前双视图基线
-            </button>
+            <>
+              <button disabled={editingLocked} onClick={recordDualBaseline}>记录当前双视图基线</button>
+              <button disabled={editingLocked} onClick={() => syncDualView("markdown")}>以 Markdown 为准同步</button>
+              <button disabled={editingLocked} onClick={() => syncDualView("map")}>以导图为准同步</button>
+            </>
           )}
-          <span>独立编辑与保存 · AI 双视图同步尚未实现</span>
+          <span>独立编辑与保存 · 当前可手动选择同步来源</span>
           {dualStatus && <span>{dualStatus}</span>}
         </div>
         {row?.pendingMove && (
