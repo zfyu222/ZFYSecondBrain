@@ -3,6 +3,7 @@ import {
   editMap,
   parseOpml,
   serializeOpml,
+  setMapTitle,
   topic,
   type Mindmap,
 } from "../src/core/formats";
@@ -11,6 +12,14 @@ import { validateFiles } from "../src/core/contracts";
 
 const simple = serializeOpml({ title: "导图", root: topic("根") });
 describe("loss-aware OPML metadata", () => {
+  it("updates a readable map title without introducing an application identifier", () => {
+    const source = serializeOpml({ title: "旧标题", root: topic("根") });
+    expect(parseOpml(setMapTitle(source, "新标题"))).toMatchObject({
+      title: "新标题",
+      root: { text: "根" },
+    });
+    expect(() => setMapTitle(source, "")).toThrow("标题");
+  });
   it("preserves standard scalar head metadata and custom scalar fields through edits", () => {
     const fields = {
       dateCreated: "Fri, 01 Jan 2021 00:00:00 GMT",

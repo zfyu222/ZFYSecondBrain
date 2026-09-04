@@ -29,7 +29,7 @@ import {
   type TrashEntry,
   restoreEmergencyExport,
 } from "./local";
-import { parseOpml, serializeOpml, topic } from "./core/formats";
+import { parseOpml, serializeOpml, setMapTitle, topic } from "./core/formats";
 import { documentTitle } from "./core/document-title";
 import { mapFromMarkdown } from "./core/map-from-markdown";
 import { markdownFromMap } from "./core/markdown-from-map";
@@ -553,6 +553,15 @@ function App() {
       setError(String(error));
     }
   }
+  function changeMapTitle(value: string) {
+    try {
+      update({
+        [active + ".opml"]: setMapTitle(filesRef.current[active + ".opml"], value),
+      });
+    } catch (error) {
+      setError(String(error));
+    }
+  }
   function enableMapView() {
     if (!hasMd || hasMap || editingLocked) return;
     let mapTitle = active.split("/").pop() ?? "未命名";
@@ -888,13 +897,17 @@ function App() {
             <div className="breadcrumb">
               {active.split("/").slice(0, -1).join(" / ")}
             </div>
-            {hasMd ? (
+            {hasMd || hasMap ? (
               <input
                 className="note-title"
                 aria-label="文档标题"
                 value={title}
                 disabled={editingLocked}
-                onChange={(event) => changeTitle(event.target.value)}
+                onChange={(event) =>
+                  hasMd
+                    ? changeTitle(event.target.value)
+                    : changeMapTitle(event.target.value)
+                }
               />
             ) : (
               <h1>{title}</h1>

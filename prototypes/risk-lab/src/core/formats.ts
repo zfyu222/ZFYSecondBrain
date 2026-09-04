@@ -262,6 +262,15 @@ export function parseOpml(xml: string): Mindmap {
       : {}),
   };
 }
+/** Update the portable OPML document title without turning it into an app ID. */
+export function setMapTitle(xml: string, title: string) {
+  const value = title.trim();
+  if (!value || value.length > 200 || /[\x00-\x1f]/.test(value))
+    throw new Error("标题必须是 1–200 字的普通文本");
+  const map = parseOpml(xml);
+  return serializeOpml({ ...map, title: value });
+}
+
 export function parseRelations(text: string, map: Mindmap): Relation[] {
   if (!text.trim()) return [];
   const data = relationsSchema.parse(safeYaml(text));
