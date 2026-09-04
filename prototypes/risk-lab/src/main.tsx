@@ -111,6 +111,7 @@ function App() {
     [view, setView] = useState<"markdown" | "map">("markdown");
   const [message, setMessage] = useState("正在打开本机数据…"),
     [error, setError] = useState("");
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const [offlineNotice, setOfflineNotice] = useState("");
   const [busy, setBusy] = useState(false),
     [offline, setOffline] = useState(false),
@@ -250,6 +251,7 @@ function App() {
       if (saveFailure.current) throw new Error("请先处理本机保存错误");
       const next = await synchronize(db);
       accept(next);
+      setLastCheckedAt(new Date());
       setMessage(
         next.conflict
           ? "检测到冲突 · 请保留一版"
@@ -933,7 +935,7 @@ function App() {
               disabled={busy || offline || !row || !!row.conflict}
               onClick={() => void sync()}
             >
-              {busy ? "处理中…" : "同步测试服务"}
+              {busy ? "处理中…" : "同步并检查外部变更"}
             </button>
           </div>
         </header>
@@ -941,6 +943,10 @@ function App() {
           <span className="dot" />
           {message}
           <span className="status-hint">
+            {lastCheckedAt
+              ? `上次检查 ${lastCheckedAt.toLocaleTimeString()} · 每 30 秒检查外部文件变更`
+              : "每 30 秒检查外部文件变更"}
+            <br />
             UI 在本机浏览器运行 · API 仅 localhost
           </span>
         </div>
