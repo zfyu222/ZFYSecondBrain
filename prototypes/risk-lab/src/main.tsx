@@ -31,6 +31,7 @@ import {
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
 import { documentTitle } from "./core/document-title";
+import { mapFromMarkdown } from "./core/map-from-markdown";
 import {
   isFavorite,
   noteTags,
@@ -560,7 +561,9 @@ function App() {
       // A malformed optional title must not prevent the user from keeping a map.
     }
     update({
-      [`${active}.opml`]: serializeOpml({ title: mapTitle, root: topic(mapTitle) }),
+      [`${active}.opml`]: serializeOpml(
+        mapFromMarkdown(mapTitle, filesRef.current[active + ".md"]),
+      ),
     });
     setView("map");
   }
