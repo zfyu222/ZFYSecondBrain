@@ -152,6 +152,16 @@ select:focus-visible {
   padding: 3px 6px;
   font-size: 11px;
 }
+.soft-link-chip {
+  display: inline-flex;
+  gap: 1px;
+}
+.soft-link-chip .note-link {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .soft-link-entry {
   display: flex;
   gap: 4px;

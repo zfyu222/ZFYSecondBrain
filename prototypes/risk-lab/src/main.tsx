@@ -627,8 +627,18 @@ function App() {
     );
   const matchesSpace = (stem: string) =>
     space === "all" || stem.startsWith(`raw/${space}/`);
+  const matchesSoftLink = (stem: string) => {
+    if (!folderPrefix || !files[stem + ".md"]) return false;
+    try {
+      return softLinks(files[stem + ".md"]).some(
+        (link) => link === folderPrefix || link.startsWith(folderPrefix + "/"),
+      );
+    } catch {
+      return false;
+    }
+  };
   const matchesFolder = (stem: string) =>
-    !folderPrefix || stem.startsWith(folderPrefix + "/");
+    !folderPrefix || stem.startsWith(folderPrefix + "/") || matchesSoftLink(stem);
   const visibleNotes = notes
     .filter(matchesSpace)
     .filter(matchesFolder)
@@ -870,15 +880,31 @@ function App() {
               <div className="soft-links" aria-label="软链接入口">
                 额外入口：
                 {activeSoftLinks.map((link) => (
-                  <button
-                    key={link}
-                    disabled={editingLocked}
-                    onClick={() =>
-                      changeSoftLinks(activeSoftLinks.filter((item) => item !== link))
-                    }
-                  >
-                    {link} ×
-                  </button>
+                  <span key={link} className="soft-link-chip">
+                    <button
+                      type="button"
+                      className="note-link"
+                      disabled={busy}
+                      onClick={() => {
+                        setSpace("all");
+                        setFolderPrefix(link);
+                      }}
+                    >
+                      {link}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`移除软链接 ${link}`}
+                      disabled={editingLocked}
+                      onClick={() =>
+                        changeSoftLinks(
+                          activeSoftLinks.filter((item) => item !== link),
+                        )
+                      }
+                    >
+                      ×
+                    </button>
+                  </span>
                 ))}
               </div>
             )}
