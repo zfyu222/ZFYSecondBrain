@@ -77,6 +77,30 @@ async function fixture() {
 }
 
 describe("readable movement replay", () => {
+  it("moves an arbitrary-depth folder and rewrites its document references", () => {
+    const source = {
+      "raw/Areas/健康/睡眠/记录.md": "[[raw/Areas/健康/睡眠/结论]]",
+      "raw/Areas/健康/睡眠/结论.md": "结论",
+      "raw/Projects/计划.md": "[[raw/Areas/健康/睡眠/记录]]",
+    };
+    const moved = moveNote(
+      source,
+      "raw/Areas/健康/睡眠",
+      "raw/Projects/减脂/睡眠",
+      true,
+      ["raw/Areas/健康/睡眠/记录.assets/图.png"],
+    );
+    expect(moved.files["raw/Areas/健康/睡眠/记录.md"]).toBeUndefined();
+    expect(moved.files["raw/Projects/减脂/睡眠/记录.md"]).toBe(
+      "[[raw/Projects/减脂/睡眠/结论]]",
+    );
+    expect(moved.files["raw/Projects/计划.md"]).toBe(
+      "[[raw/Projects/减脂/睡眠/记录]]",
+    );
+    expect(moved.moves["raw/Areas/健康/睡眠/记录.assets/图.png"]).toBe(
+      "raw/Projects/减脂/睡眠/记录.assets/图.png",
+    );
+  });
   it("replays a chain on both baseline and local changes, including references", () => {
     const base = snapshot({ [a]: "original", [ref]: "[[raw/Inbox/a]]" });
     const aligned = alignMoves(
@@ -195,6 +219,34 @@ describe("readable movement replay", () => {
 });
 
 describe("movement journal and client integration", () => {
+  it("commits a directory move as one recoverable server transaction", async () => {
+    const { store, base } = await fixture();
+    const seeded = await store.commit({
+      requestId: "seed-directory-move",
+      expectedRevision: base.revision,
+      files: {
+        ...base.files,
+        "raw/Areas/健康/睡眠/记录.md": "[[raw/Areas/健康/睡眠/结论]]",
+        "raw/Areas/健康/睡眠/结论.md": "结论",
+        [ref]: "[[raw/Areas/健康/睡眠/记录]]",
+      },
+    });
+    const moved = await store.move({
+      requestId: "directory-move-integration",
+      expectedRevision: seeded.revision,
+      from: "raw/Areas/健康/睡眠",
+      to: "raw/Projects/减脂/睡眠",
+    });
+    expect(moved.files["raw/Areas/健康/睡眠/记录.md"]).toBeUndefined();
+    expect(moved.files["raw/Projects/减脂/睡眠/记录.md"]).toBe(
+      "[[raw/Projects/减脂/睡眠/结论]]",
+    );
+    expect(moved.files[ref]).toBe("[[raw/Projects/减脂/睡眠/记录]]");
+    expect(moved.moves?.[0]).toMatchObject({
+      from: "raw/Areas/健康/睡眠",
+      to: "raw/Projects/减脂/睡眠",
+    });
+  });
   it("keeps offline edits at the new path and merges independent remote edits", async () => {
     const { store, db, base } = await fixture();
     const row = await db.read();

@@ -11,8 +11,7 @@ export function validateMoves(records: MoveRecord[]) {
     moveRecordSchema.parse(record);
     if (
       record.sequence !== i + 1 ||
-      !record.from.endsWith(".md") ||
-      !record.to.endsWith(".md") ||
+      (record.from.endsWith(".md") !== record.to.endsWith(".md")) ||
       record.from === record.to
     )
       throw new Error("移动记录不连续或无效");
@@ -38,17 +37,20 @@ export function alignMoves(
   let baseAttachments = { ...(base?.attachments ?? {}) },
     attachments = { ...localAttachments };
   for (const move of all.slice(known.length)) {
-    const stem = move.from.slice(0, -3);
+    const documentMove = move.from.endsWith(".md");
+    const stem = documentMove ? move.from.slice(0, -3) : move.from;
     const localBundle = [
       ...Object.keys(files),
       ...Object.keys(attachments),
     ].some(
       (p) =>
-        p === move.from ||
-        [".opml", ".relations.yaml", ".note.yaml"].some(
-          (ext) => p === stem + ext,
-        ) ||
-        p.startsWith(stem + ".assets/"),
+        documentMove
+          ? p === move.from ||
+            [".opml", ".relations.yaml", ".note.yaml"].some(
+              (ext) => p === stem + ext,
+            ) ||
+            p.startsWith(stem + ".assets/")
+          : p.startsWith(stem + "/"),
     );
     if (!(move.from in baseFiles) && localBundle)
       throw new Error(

@@ -126,6 +126,7 @@ function App() {
   const [backlinks, setBacklinks] = useState<{ source: string; heading?: string }[]>([]);
   const [trashEntries, setTrashEntries] = useState<TrashEntry[]>([]);
   const [destination, setDestination] = useState("raw/Areas/开始使用.md");
+  const [folderDestination, setFolderDestination] = useState("");
   const [jump, setJump] = useState<{ path: string; heading: string } | null>(
     null,
   );
@@ -364,6 +365,32 @@ function App() {
       accept(await moveDocument(db, active + ".md", target));
       setActive(target.slice(0, -3));
       setMessage("已移动并更新受支持的 Markdown 引用");
+    } catch (e) {
+      setError(String(e));
+      if (!saveFailure.current) accept(await db.read());
+    } finally {
+      operationBusy.current = false;
+      setBusy(false);
+    }
+  }
+  async function moveSelectedFolder() {
+    const source = folderPrefix,
+      target = folderDestination.trim();
+    if (operationBusy.current || source.split("/").length < 3 || !target)
+      return;
+    operationBusy.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await writeQueue.current;
+      if (saveFailure.current)
+        throw new Error("请先导出未保存草稿，再重新载入");
+      accept(await moveDocument(db, source, target));
+      if (active === source || active.startsWith(source + "/"))
+        setActive(target + active.slice(source.length));
+      setFolderPrefix(target);
+      setFolderDestination("");
+      setMessage("目录已移动并更新受支持的 Markdown 引用");
     } catch (e) {
       setError(String(e));
       if (!saveFailure.current) accept(await db.read());
@@ -1311,9 +1338,25 @@ function App() {
                 移动当前笔记
               </button>
             </div>
+            {folderPrefix.split("/").length >= 3 && (
+              <div className="tool-row">
+                <input
+                  aria-label="目录移动目标路径"
+                  placeholder="raw/Projects/新目录"
+                  value={folderDestination}
+                  onChange={(e) => setFolderDestination(e.target.value)}
+                />
+                <button
+                  disabled={offline || editingLocked || !folderDestination.trim()}
+                  onClick={() => void moveSelectedFolder()}
+                >
+                  移动当前目录
+                </button>
+              </div>
+            )}
             <p>
-              已支持部分 Markdown 引用重写；结构化引用、复杂 OFM
-              语法仍有待验证。根目录移动和同名覆盖均被拒绝。
+              支持移动单篇笔记或当前任意层级子目录；受支持的引用随事务更新。
+              复杂 OFM、未知结构化引用、根目录移动和同名覆盖均会被拒绝。
             </p>
           </details>
         </footer>

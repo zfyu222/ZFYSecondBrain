@@ -255,7 +255,12 @@ function assertNoUnknownReferences(
       assertNoUnknownReferences(item, owner, destination, moves),
     );
 }
-export function moveNote(
+/**
+ * Moves one Markdown document bundle or every portable file below a directory.
+ * The resulting mapping is intentionally explicit so text and binary companions
+ * can participate in the same storage transaction.
+ */
+export function movePath(
   files: Record<string, string>,
   from: string,
   to: string,
@@ -270,35 +275,32 @@ export function moveNote(
       to.normalize("NFC").toLocaleLowerCase("en-US")
   )
     throw new Error("暂不支持仅大小写或 Unicode 等价的重命名");
+  const documentMove = from.endsWith(".md") || to.endsWith(".md");
   if (
-    !from.endsWith(".md") ||
-    !to.endsWith(".md") ||
-    (requireSource && !(from in files)) ||
-    from === to
+    from === to ||
+    (documentMove && (!from.endsWith(".md") || !to.endsWith(".md")))
   )
-    throw new Error("原型移动入口需要两个不同的 Markdown 路径");
-  const fromStem = from.slice(0, -3),
-    toStem = to.slice(0, -3);
+    throw new Error("移动入口需要同类且不同的文档或目录路径");
+  if (requireSource && !documentMove && !Object.keys(files).some((path) => path.startsWith(from + "/")))
+    throw new Error("源目录不存在或为空");
+  if (requireSource && documentMove && !(from in files))
+    throw new Error("源 Markdown 文档不存在");
+  const fromStem = documentMove ? from.slice(0, -3) : from,
+    toStem = documentMove ? to.slice(0, -3) : to;
   const moves = new Map<string, string>();
-  for (const path of [
-    ...Object.keys(files),
-    ...knownPaths,
-    from,
-    `${fromStem}.opml`,
-    `${fromStem}.relations.yaml`,
-    `${fromStem}.note.yaml`,
-  ]) {
+  const candidates = [...new Set([...Object.keys(files), ...knownPaths, from])];
+  for (const path of candidates)
     if (
-      [
-        from,
-        `${fromStem}.opml`,
-        `${fromStem}.relations.yaml`,
-        `${fromStem}.note.yaml`,
-      ].includes(path) ||
-      path.startsWith(`${fromStem}.assets/`)
+      documentMove
+        ? [
+            from,
+            `${fromStem}.opml`,
+            `${fromStem}.relations.yaml`,
+            `${fromStem}.note.yaml`,
+          ].includes(path) || path.startsWith(`${fromStem}.assets/`)
+        : path.startsWith(fromStem + "/")
     )
       moves.set(path, toStem + path.slice(fromStem.length));
-  }
   const folded = new Set(
     Object.keys(files)
       .filter((p) => !moves.has(p))
@@ -390,3 +392,6 @@ export function moveNote(
   }
   return { files: result, moves: Object.fromEntries(moves) };
 }
+
+/** Backward-compatible name for callers that only move one Markdown document. */
+export const moveNote = movePath;
