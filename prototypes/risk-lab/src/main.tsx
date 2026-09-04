@@ -41,6 +41,7 @@ import {
 } from "./core/note-metadata";
 import { matchesNoteSearch } from "./core/search";
 import { isTemplateStem, templateName } from "./core/templates";
+import { folderTree, type FolderNode } from "./core/folders";
 import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
@@ -70,6 +71,36 @@ function download(name: string, text: string) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+function FolderTree({
+  nodes,
+  current,
+  onPick,
+}: {
+  nodes: FolderNode[];
+  current: string;
+  onPick: (path: string) => void;
+}) {
+  return nodes.map((node) => (
+    <details key={node.path} open={current.startsWith(node.path + "/")}>
+      <summary>
+        <button
+          className={current === node.path ? "selected" : ""}
+          onClick={(event) => {
+            event.preventDefault();
+            onPick(node.path);
+          }}
+        >
+          {node.name}
+        </button>
+      </summary>
+      {node.children.length > 0 && (
+        <div className="folder-children">
+          <FolderTree nodes={node.children} current={current} onPick={onPick} />
+        </div>
+      )}
+    </details>
+  ));
+}
 function App() {
   const [row, setRow] = useState<LocalState | null>(null),
     rowRef = useRef<LocalState | null>(null);
@@ -85,6 +116,7 @@ function App() {
     [query, setQuery] = useState("");
   const [includeArchive, setIncludeArchive] = useState(false);
   const [space, setSpace] = useState<Space>("all");
+  const [folderPrefix, setFolderPrefix] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [tagDraft, setTagDraft] = useState("");
   const [softLinkDraft, setSoftLinkDraft] = useState("");
@@ -532,7 +564,13 @@ function App() {
     );
   const matchesSpace = (stem: string) =>
     space === "all" || stem.startsWith(`raw/${space}/`);
-  const visibleNotes = notes.filter(matchesSpace).filter(matchesSearch);
+  const matchesFolder = (stem: string) =>
+    !folderPrefix || stem.startsWith(folderPrefix + "/");
+  const visibleNotes = notes
+    .filter(matchesSpace)
+    .filter(matchesFolder)
+    .filter(matchesSearch);
+  const folders = folderTree(notes);
   useEffect(() => {
     setChoices({});
   }, [row?.conflict]);
@@ -621,12 +659,28 @@ function App() {
             <button
               key={key}
               className={space === key ? "selected" : ""}
-              onClick={() => setSpace(key)}
+              onClick={() => {
+                setSpace(key);
+                setFolderPrefix(key === "all" ? "" : `raw/${key}`);
+              }}
             >
               {label}
             </button>
           ))}
         </div>
+        <details className="folder-tree">
+          <summary>目录树{folderPrefix ? ` · ${folderPrefix.split("/").pop()}` : ""}</summary>
+          {folderPrefix && (
+            <button className="clear-folder" onClick={() => setFolderPrefix("")}>
+              显示所有目录
+            </button>
+          )}
+          <FolderTree
+            nodes={folders[0]?.children ?? []}
+            current={folderPrefix}
+            onPick={(path) => setFolderPrefix(path)}
+          />
+        </details>
         <div className="section-label">
           本机文档 <span>{visibleNotes.length}</span>
         </div>

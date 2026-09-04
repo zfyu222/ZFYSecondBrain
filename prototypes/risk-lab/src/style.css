@@ -191,6 +191,33 @@ select:focus-visible {
   background: #e8f1e9;
   color: #315a3b;
 }
+.folder-tree {
+  color: #627368;
+  font-size: 11px;
+}
+.folder-tree summary {
+  cursor: pointer;
+}
+.folder-tree details {
+  margin: 4px 0 0 8px;
+}
+.folder-tree summary button {
+  padding: 2px 5px;
+  color: #52665a;
+  font-size: 11px;
+}
+.folder-tree summary button.selected {
+  background: #e8f1e9;
+  color: #315a3b;
+}
+.folder-children {
+  padding-left: 8px;
+}
+.clear-folder {
+  margin: 5px 0 0 8px;
+  padding: 2px 5px;
+  font-size: 11px;
+}
 .section-label {
   font-size: 11px;
   letter-spacing: 2px;
