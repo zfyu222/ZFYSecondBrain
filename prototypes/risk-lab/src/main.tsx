@@ -1388,7 +1388,7 @@ function App() {
           <details>
             <summary>验证工具与原始文件</summary>
             <p>
-              当前原型验证文本和受限二进制附件；不是正式 NAS
+              当前原型验证文本和受限二进制附件；不是正式 Linux 服务器
               服务。模拟断网仅暂停同步，真正断网刷新请使用构建后的预览。
             </p>
             <div className="tool-row">

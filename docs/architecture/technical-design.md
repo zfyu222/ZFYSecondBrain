@@ -5,7 +5,7 @@
 ## 1. 决策摘要
 
 - 一套共享的 TypeScript 核心和 React 编辑界面：Web 先交付，Windows/安卓后续通过 Tauri 2 及平台适配接入。
-- NAS 采用模块化单体知识库服务，不拆成大量微服务；AI 管理员单独进程/容器、可停用和替换。
+- Linux 服务器采用模块化单体知识库服务，不拆成大量微服务；AI 管理员单独进程/容器、可停用和替换。
 - Markdown、OPML、YAML 与附件是真实知识来源；SQLite 仅保存可重建索引，运行与恢复必需状态另有明文记录。
 - 服务端串行提交写事务，客户端先本地保存；使用共同版本和乐观并发检查，不做实时多人协同，不引入 CRDT 作为首版前提。
 - 首版问答先用全文与关键词检索、链接邻域及原文读取；不先部署向量数据库、图数据库或 Redis。
@@ -25,7 +25,7 @@
 | 知识库服务    | Node.js 受支持 LTS + TypeScript + Fastify                           | 与客户端共享格式和校验；单服务处理文件、索引、同步、认证和工具入口。[Node 发布策略](https://nodejs.org/en/about/previous-releases)、[Fastify](https://fastify.dev/docs/latest/)                                            |
 | 索引          | SQLite + FTS5；通过独立存储适配器接入                               | 不需独立数据库服务；中文短词单独处理；驱动、FTS 编译支持和 NAS CPU 二进制兼容须验证。[FTS5](https://www.sqlite.org/fts5.html)                                                                                              |
 | 管理员        | Python 独立服务 + nanobot 适配器，候选待验证                        | 复用 Agent 能力，不把其框架状态变成知识唯一来源。[nanobot](https://github.com/HKUDS/nanobot)                                                                                                                               |
-| 部署          | 优先 Compose：知识库服务 + 可选管理员；NAS HTTPS 反向代理           | 群晖 Container Manager 的 Project 支持 Compose；具体型号可用性仍待核实。[群晖 Project](https://kb.synology.com/en-us/DSM/help/ContainerManager/docker_project)                                                             |
+| 部署          | 优先 Compose：知识库服务 + 可选管理员；服务器 HTTPS 反向代理        | 标准 Linux 容器运行时支持 Compose；发行版、资源与网络条件仍待核实。                                                             |
 | 测试          | TypeScript 单元/契约测试 + 浏览器端到端测试；原生设备另测           | 拟采用 Vitest、Playwright；原生壳、中文输入法和桌面控件不能只靠桌面浏览器模拟验收                                                                                                                                          |
 
 版本策略：原型阶段选相互兼容的稳定版并锁定确切版本，正式初始化时生成锁文件；本文不写未经实际构建验证的 patch 版本。依赖版本变更须重新跑格式和同步契约测试。
@@ -48,7 +48,7 @@
 └─ Tauri（后续）：原生文件、通知、安卓控件适配
           │ 同一版本化 API
           ▼
-NAS 知识库服务
+Linux 服务器知识库服务
 ├─ 登录与权限、读取与搜索、同步与冲突
 ├─ 文件事务、路径重写、历史、回收站、索引
 ├─ 受控工具接口、任务记录与应用内通知
@@ -196,7 +196,7 @@ NAS 知识库服务
 - Windows 大小写与保留文件名、Unicode 路径和 Linux 差异需在跨平台文件契约中处理；不能自动改名或压平用户目录来隐藏不兼容。
 - 用户离线访问的是该设备已缓存的明文；服务端注销不能神奇擦除断网设备数据。退出时展示保留/清理影响，清理前保护未同步内容。
 
-## 8. NAS 部署与待提供信息
+## 8. Linux 服务器部署与待提供信息
 
 优先一个知识库容器提供 API 和打包后的静态 Web，另一个可选管理员容器；反向代理统一 HTTPS 入口，内部工具不直接暴露到公网。不因 AI 故障阻止知识库健康检查通过。
 
