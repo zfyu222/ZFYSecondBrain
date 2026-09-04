@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rewriteMarkdown, rewriteTarget, moveNote } from "../src/core/paths";
-import { safeYaml, serializeOpml, topic } from "../src/core/formats";
+import { parseOpml, safeYaml, serializeOpml, topic } from "../src/core/formats";
 
 const from = "raw/Inbox/a.md",
   to = "raw/Projects/b.md",
@@ -180,5 +180,21 @@ describe("Front Matter and unsupported HTML boundaries", () => {
       moveNote({ [from]: "# A", "raw/Areas/other.opml": plain }, from, to)
         .files["raw/Areas/other.opml"],
     ).toBe(plain);
+  });
+  it("rewrites a portable OPML url reference when its target moves", () => {
+    const linked = serializeOpml({
+      title: "导图",
+      root: {
+        ...topic("引用睡眠"),
+        type: "reference",
+        attrs: { url: "../Inbox/a.md#结论" },
+      },
+    });
+    const result = moveNote(
+      { [from]: "# A", "raw/Areas/导图.opml": linked },
+      from,
+      to,
+    ).files["raw/Areas/导图.opml"];
+    expect(parseOpml(result).root.attrs.url).toBe("../Projects/b.md#结论");
   });
 });
