@@ -28,6 +28,29 @@ export function isFavorite(source: string) {
   return readFrontMatter(source)?.metadata.favorite === true;
 }
 
+export function noteTitle(source: string) {
+  const value = readFrontMatter(source)?.metadata.title;
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !value.trim() || value.length > 200)
+    throw new Error("title 必须是 1–200 字的文本");
+  return value;
+}
+
+export function setNoteTitle(source: string, title: string) {
+  const value = title.trim();
+  if (!value || value.length > 200 || /[\x00-\x1f]/.test(value))
+    throw new Error("标题必须是 1–200 字的普通文本");
+  const front = readFrontMatter(source);
+  const line = `title: ${JSON.stringify(value)}`;
+  if (!front) return `---\n${line}\n---\n${source}`;
+  const [whole, opening, body, closing] = front.match;
+  const titleLine = /^(title:\s*)[^\r\n#]*?(\s*(?:#.*)?)(\r?\n|$)/m;
+  const updated = titleLine.test(body)
+    ? body.replace(titleLine, (_line, _prefix, suffix, end) => `${line}${suffix}${end}`)
+    : `${line}${opening.includes("\r\n") ? "\r\n" : "\n"}` + body;
+  return source.replace(whole, opening + updated + closing);
+}
+
 function validTag(value: string) {
   const tag = value.trim();
   if (!tag || tag.length > 80 || /[\x00-\x1f\[\]#,]/.test(tag))

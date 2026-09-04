@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isFavorite, setFavorite, setSoftLinks, softLinks } from "../src/core/note-metadata";
+import { isFavorite, noteTitle, setFavorite, setNoteTitle, setSoftLinks, softLinks } from "../src/core/note-metadata";
 
 describe("portable note metadata", () => {
+  it("uses a readable title without renaming the file", () => {
+    const source = setNoteTitle("# 原文\n", "显示标题");
+    expect(noteTitle(source)).toBe("显示标题");
+  });
   it("stores soft link entrances as portable readable paths", () => {
     const updated = setSoftLinks("# 原文\n", ["raw/Projects/项目A", "raw/Areas/健康/"]);
     expect(softLinks(updated)).toEqual(["raw/Projects/项目A", "raw/Areas/健康"]);

@@ -37,6 +37,8 @@ import {
   setNoteTags,
   setSoftLinks,
   softLinks,
+  noteTitle,
+  setNoteTitle,
 } from "./core/note-metadata";
 import { matchesNoteSearch } from "./core/search";
 import { isTemplateStem, templateName } from "./core/templates";
@@ -491,6 +493,13 @@ function App() {
       setError(String(error));
     }
   }
+  function changeTitle(value: string) {
+    try {
+      update({ [active + ".md"]: setNoteTitle(filesRef.current[active + ".md"], value) });
+    } catch (error) {
+      setError(String(error));
+    }
+  }
   function changeSoftLinks(nextLinks: string[]) {
     const path = active + ".md";
     try {
@@ -520,7 +529,7 @@ function App() {
         .map((p) => p.replace(/\.(md|opml)$/, "")),
     ),
   ].filter((stem) => !isTemplateStem(stem));
-  const title = active.split("/").pop();
+  const fileTitle = active.split("/").pop() ?? "未命名";
   const hasMd = `${active}.md` in files,
     hasMap = `${active}.opml` in files;
   const favoriteNotes = notes.filter((path) => {
@@ -538,6 +547,14 @@ function App() {
       activeTags = noteTags(files[active + ".md"]);
     } catch {
       // Keep the editor usable; save actions show the precise metadata error.
+    }
+  }
+  let title = fileTitle;
+  if (hasMd) {
+    try {
+      title = noteTitle(files[active + ".md"]) ?? fileTitle;
+    } catch {
+      // Keep source editable if user-provided metadata is malformed.
     }
   }
   if (hasMd) {
@@ -773,7 +790,17 @@ function App() {
             <div className="breadcrumb">
               {active.split("/").slice(0, -1).join(" / ")}
             </div>
-            <h1>{title}</h1>
+            {hasMd ? (
+              <input
+                className="note-title"
+                aria-label="文档标题"
+                value={title}
+                disabled={editingLocked}
+                onChange={(event) => changeTitle(event.target.value)}
+              />
+            ) : (
+              <h1>{title}</h1>
+            )}
             {hasMd && activeTags.length > 0 && (
               <div className="note-tags" aria-label="当前标签">
                 {activeTags.map((tag) => (

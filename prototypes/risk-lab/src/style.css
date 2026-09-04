@@ -297,6 +297,16 @@ h1 {
   font-weight: 600;
   margin: 9px 0 16px;
 }
+.note-title {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 28px;
+  font-weight: 700;
+}
 .status-actions {
   display: flex;
   align-items: center;
