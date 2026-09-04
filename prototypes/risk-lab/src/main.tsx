@@ -42,7 +42,7 @@ import {
 } from "./core/note-metadata";
 import { matchesNoteSearch } from "./core/search";
 import { isTemplateStem, templateName } from "./core/templates";
-import { folderTree, type FolderNode } from "./core/folders";
+import { appearsInFolder, folderTree, type FolderNode } from "./core/folders";
 import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
@@ -625,20 +625,14 @@ function App() {
       query,
       includeArchive,
     );
+  const matchesCurrentFolder = (stem: string) =>
+    appearsInFolder(stem, files[stem + ".md"], folderPrefix);
   const matchesSpace = (stem: string) =>
-    space === "all" || stem.startsWith(`raw/${space}/`);
-  const matchesSoftLink = (stem: string) => {
-    if (!folderPrefix || !files[stem + ".md"]) return false;
-    try {
-      return softLinks(files[stem + ".md"]).some(
-        (link) => link === folderPrefix || link.startsWith(folderPrefix + "/"),
-      );
-    } catch {
-      return false;
-    }
-  };
+    space === "all" ||
+    stem.startsWith(`raw/${space}/`) ||
+    (!!folderPrefix && matchesCurrentFolder(stem));
   const matchesFolder = (stem: string) =>
-    !folderPrefix || stem.startsWith(folderPrefix + "/") || matchesSoftLink(stem);
+    matchesCurrentFolder(stem);
   const visibleNotes = notes
     .filter(matchesSpace)
     .filter(matchesFolder)

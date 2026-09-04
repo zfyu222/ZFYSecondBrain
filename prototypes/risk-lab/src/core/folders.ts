@@ -1,4 +1,23 @@
+import { softLinks } from "./note-metadata";
+
 export type FolderNode = { path: string; name: string; children: FolderNode[] };
+
+/** A virtual soft-link entrance participates in folder browsing without copying a note. */
+export function appearsInFolder(
+  stem: string,
+  markdown: string | undefined,
+  folder: string,
+) {
+  if (!folder || stem.startsWith(folder + "/")) return true;
+  if (!markdown) return false;
+  try {
+    return softLinks(markdown).some(
+      (link) => link === folder || link.startsWith(folder + "/"),
+    );
+  } catch {
+    return false;
+  }
+}
 
 /** Build a readable directory tree from portable note stems without flattening depth. */
 export function folderTree(stems: string[]) {

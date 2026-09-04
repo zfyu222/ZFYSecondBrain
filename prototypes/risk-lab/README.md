@@ -32,7 +32,7 @@ pnpm preview:prototype
 
 打开有被引用的文档时，标题下会显示反向链接。它扫描本机 Markdown 中的 Wiki 与普通链接，并按照实际路径解析；失效链接、外部链接和私有 ID 都不会被误当作关联。
 
-Markdown 顶部可添加 `raw/Projects/…`、`raw/Areas/…` 等软链接入口。它们写为可读的 `soft_links` Front Matter 列表，让一篇笔记有多个分类入口但仍只有一个真实文件；操作系统符号链接不参与知识库。
+Markdown 顶部可添加 `raw/Projects/…`、`raw/Areas/…` 等软链接入口。它们写为可读的 `soft_links` Front Matter 列表，让一篇笔记有多个分类入口但仍只有一个真实文件；点击入口或浏览对应空间时会显示这些笔记，操作系统符号链接不参与知识库。
 
 模板是 `raw/Areas/_templates/` 中普通 Markdown。可新建或编辑模板，再从侧栏选择模板创建一篇 Inbox 笔记；创建时复制原文，之后笔记和模板相互独立。模板管理文件不混入普通文档列表或搜索。
 
