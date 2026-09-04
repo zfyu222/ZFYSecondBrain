@@ -138,6 +138,28 @@ select:focus-visible {
   padding: 3px 6px;
   font-size: 11px;
 }
+.soft-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  color: #627368;
+  font-size: 11px;
+}
+.soft-links button,
+.soft-link-entry button {
+  padding: 3px 6px;
+  font-size: 11px;
+}
+.soft-link-entry {
+  display: flex;
+  gap: 4px;
+}
+.soft-link-entry input {
+  width: 150px;
+  padding: 6px;
+}
 .search {
   width: 100%;
   background: #f8faf6;

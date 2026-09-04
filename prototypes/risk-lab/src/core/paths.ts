@@ -100,6 +100,7 @@ export function rewriteMarkdown(
       "audio",
       "attachment",
       "links",
+      "soft_links",
       "references",
     ]);
     function visit(node: unknown, key = "") {

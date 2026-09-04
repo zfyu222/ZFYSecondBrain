@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isFavorite, setFavorite } from "../src/core/note-metadata";
+import { isFavorite, setFavorite, setSoftLinks, softLinks } from "../src/core/note-metadata";
 
 describe("portable note metadata", () => {
+  it("stores soft link entrances as portable readable paths", () => {
+    const updated = setSoftLinks("# 原文\n", ["raw/Projects/项目A", "raw/Areas/健康/"]);
+    expect(softLinks(updated)).toEqual(["raw/Projects/项目A", "raw/Areas/健康"]);
+    expect(updated).toContain('soft_links: ["raw/Projects/项目A", "raw/Areas/健康"]');
+  });
   it("adds a readable favorite field without a database-only identifier", () => {
     const source = "# Note\n";
     const changed = setFavorite(source, true);

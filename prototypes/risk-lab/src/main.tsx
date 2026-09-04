@@ -36,6 +36,8 @@ import {
   noteTags,
   setFavorite,
   setNoteTags,
+  setSoftLinks,
+  softLinks,
 } from "./core/note-metadata";
 import { matchesNoteSearch } from "./core/search";
 import { isTemplateStem, templateName } from "./core/templates";
@@ -85,6 +87,7 @@ function App() {
   const [space, setSpace] = useState<Space>("all");
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [tagDraft, setTagDraft] = useState("");
+  const [softLinkDraft, setSoftLinkDraft] = useState("");
   const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
   const [trashEntries, setTrashEntries] = useState<TrashEntry[]>([]);
   const [destination, setDestination] = useState("raw/Areas/开始使用.md");
@@ -456,6 +459,24 @@ function App() {
       setError(String(error));
     }
   }
+  function changeSoftLinks(nextLinks: string[]) {
+    const path = active + ".md";
+    try {
+      update({ [path]: setSoftLinks(filesRef.current[path], nextLinks) });
+    } catch (error) {
+      setError(String(error));
+    }
+  }
+  function addSoftLink() {
+    const link = softLinkDraft.trim();
+    if (!link) return;
+    try {
+      changeSoftLinks([...softLinks(filesRef.current[active + ".md"]), link]);
+      setSoftLinkDraft("");
+    } catch (error) {
+      setError(String(error));
+    }
+  }
   const allMarkdownStems = Object.keys(files)
     .filter((path) => path.endsWith(".md"))
     .map((path) => path.slice(0, -3));
@@ -483,11 +504,19 @@ function App() {
     files,
   ).filter((item) => item.source !== active + ".md");
   let activeTags: string[] = [];
+  let activeSoftLinks: string[] = [];
   if (hasMd) {
     try {
       activeTags = noteTags(files[active + ".md"]);
     } catch {
       // Keep the editor usable; save actions show the precise metadata error.
+    }
+  }
+  if (hasMd) {
+    try {
+      activeSoftLinks = softLinks(files[active + ".md"]);
+    } catch {
+      // Keep editing available; the explicit update reports malformed metadata.
     }
   }
   const recentNotes = row
@@ -694,6 +723,22 @@ function App() {
                 ))}
               </div>
             )}
+            {hasMd && activeSoftLinks.length > 0 && (
+              <div className="soft-links" aria-label="软链接入口">
+                额外入口：
+                {activeSoftLinks.map((link) => (
+                  <button
+                    key={link}
+                    disabled={editingLocked}
+                    onClick={() =>
+                      changeSoftLinks(activeSoftLinks.filter((item) => item !== link))
+                    }
+                  >
+                    {link} ×
+                  </button>
+                ))}
+              </div>
+            )}
             {backlinks.length > 0 && (
               <div className="backlinks" aria-label="反向链接">
                 被引用于：
@@ -748,6 +793,29 @@ function App() {
                   onClick={addTag}
                 >
                   标签
+                </button>
+              </div>
+            )}
+            {hasMd && (
+              <div className="soft-link-entry">
+                <input
+                  aria-label="添加软链接入口"
+                  placeholder="raw/Projects/项目"
+                  value={softLinkDraft}
+                  disabled={editingLocked}
+                  onChange={(event) => setSoftLinkDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addSoftLink();
+                    }
+                  }}
+                />
+                <button
+                  disabled={editingLocked || !softLinkDraft.trim()}
+                  onClick={addSoftLink}
+                >
+                  软链接
                 </button>
               </div>
             )}
