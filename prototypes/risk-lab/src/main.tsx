@@ -1360,7 +1360,7 @@ function App() {
                     disabled={busy}
                     onClick={() => void restoreHistory(point.id)}
                   >
-                    恢复 {new Date(point.at).toLocaleString()}
+                    恢复 {new Date(point.at).toLocaleString()} · {point.source ?? "旧历史"}
                   </button>
                 ))}
               </div>

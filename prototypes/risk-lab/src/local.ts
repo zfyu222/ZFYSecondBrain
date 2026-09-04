@@ -59,6 +59,8 @@ export type HistoryPoint = {
   path: string;
   at: string;
   content: string;
+  /** Old records have no source; retain compatibility instead of inventing one. */
+  source?: "编辑前" | "外部变更前" | "恢复前";
 };
 export type TrashEntry = {
   id: string;
@@ -264,7 +266,7 @@ export async function saveFilesWithHistory(
       throw new Error(
         "另一个标签页已修改本机数据。当前草稿仍在编辑器，可先导出，再重新载入。",
       );
-    await preserveChangedMarkdown(db, row.files, files, at);
+    await preserveChangedMarkdown(db, row.files, files, at, "编辑前");
     const next = { ...structuredClone(row), files, version: row.version + 1 };
     await db.vault.put(next);
     return next;
@@ -276,6 +278,7 @@ async function preserveChangedMarkdown(
   before: Record<string, string>,
   after: Record<string, string>,
   at: string,
+  source: NonNullable<HistoryPoint["source"]>,
 ) {
   for (const [path, content] of Object.entries(before)) {
     if (after[path] === content || !path.endsWith(".md")) continue;
@@ -283,7 +286,7 @@ async function preserveChangedMarkdown(
       await db.history.where("path").equals(path).toArray()
     ).sort((a, b) => b.at.localeCompare(a.at))[0];
     if (!prior || Date.parse(at) - Date.parse(prior.at) >= 30 * 60_000)
-      await db.history.add({ id: crypto.randomUUID(), path, at, content });
+      await db.history.add({ id: crypto.randomUUID(), path, at, content, source });
   }
 }
 
@@ -317,6 +320,7 @@ export async function restoreHistoryPoint(
       path: point.path,
       at,
       content: row.files[point.path],
+      source: "恢复前",
     });
     const next = {
       ...structuredClone(row),
@@ -495,6 +499,7 @@ export async function synchronize(db: LocalVault): Promise<LocalState> {
         current.files,
         result.files,
         new Date().toISOString(),
+        "外部变更前",
       );
       const next: LocalState = {
         ...current,

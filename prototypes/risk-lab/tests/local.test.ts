@@ -60,8 +60,8 @@ describe("local persistence and sync queue", () => {
     );
     const synced = await synchronize(db);
     expect(synced.files[p]).toBe("external edit");
-    expect((await documentHistory(db, p)).map((point) => point.content)).toEqual([
-      "base",
+    expect((await documentHistory(db, p)).map((point) => [point.content, point.source])).toEqual([
+      ["base", "外部变更前"],
     ]);
   });
   it("keeps a coarse pre-edit Markdown history point at most every 30 minutes", async () => {
@@ -89,6 +89,11 @@ describe("local persistence and sync queue", () => {
         .sort((a, b) => a.at.localeCompare(b.at))
         .map((item) => item.content),
     ).toEqual(["base", "second"]);
+    expect(
+      (await db.history.toArray())
+        .sort((a, b) => a.at.localeCompare(b.at))
+        .map((item) => item.source),
+    ).toEqual(["编辑前", "编辑前"]);
     expect(third.files[p]).toBe("third");
   });
   it("restores a history point while retaining the current draft as recovery data", async () => {
@@ -111,6 +116,7 @@ describe("local persistence and sync queue", () => {
     expect(
       (await documentHistory(db, p)).map((item) => item.content),
     ).toContain("edited");
+    expect((await documentHistory(db, p)).some((item) => item.source === "恢复前")).toBe(true);
   });
   it("moves a full document bundle to trash and restores without overwriting", async () => {
     const db = await fixture(),
