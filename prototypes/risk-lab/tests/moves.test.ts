@@ -79,9 +79,10 @@ async function fixture() {
 describe("readable movement replay", () => {
   it("moves an arbitrary-depth folder and rewrites its document references", () => {
     const source = {
-      "raw/Areas/健康/睡眠/记录.md": "[[raw/Areas/健康/睡眠/结论]]",
-      "raw/Areas/健康/睡眠/结论.md": "结论",
-      "raw/Projects/计划.md": "[[raw/Areas/健康/睡眠/记录]]",
+      "raw/Areas/健康/睡眠/记录.md": "[[raw/Areas/健康/睡眠/研究/结论]]",
+      "raw/Areas/健康/睡眠/研究/结论.md": "结论",
+      "raw/Projects/计划.md":
+        "---\nsoft_links: [raw/Areas/健康/睡眠, raw/Areas/健康/睡眠/研究]\n---\n[[raw/Areas/健康/睡眠/记录]]",
     };
     const moved = moveNote(
       source,
@@ -92,9 +93,12 @@ describe("readable movement replay", () => {
     );
     expect(moved.files["raw/Areas/健康/睡眠/记录.md"]).toBeUndefined();
     expect(moved.files["raw/Projects/减脂/睡眠/记录.md"]).toBe(
-      "[[raw/Projects/减脂/睡眠/结论]]",
+      "[[raw/Projects/减脂/睡眠/研究/结论]]",
     );
-    expect(moved.files["raw/Projects/计划.md"]).toBe(
+    expect(moved.files["raw/Projects/计划.md"]).toContain(
+      "soft_links: [ raw/Projects/减脂/睡眠, raw/Projects/减脂/睡眠/研究 ]",
+    );
+    expect(moved.files["raw/Projects/计划.md"]).toContain(
       "[[raw/Projects/减脂/睡眠/记录]]",
     );
     expect(moved.moves["raw/Areas/健康/睡眠/记录.assets/图.png"]).toBe(

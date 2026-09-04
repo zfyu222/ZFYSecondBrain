@@ -291,6 +291,17 @@ export function movePath(
     toStem = documentMove ? to.slice(0, -3) : to;
   const moves = new Map<string, string>();
   const candidates = [...new Set([...Object.keys(files), ...knownPaths, from])];
+  if (!documentMove) {
+    moves.set(fromStem, toStem);
+    for (const path of candidates) {
+      if (!path.startsWith(fromStem + "/")) continue;
+      const relativeParts = path.slice(fromStem.length + 1).split("/");
+      for (let depth = 1; depth < relativeParts.length; depth++) {
+        const directory = fromStem + "/" + relativeParts.slice(0, depth).join("/");
+        moves.set(directory, toStem + directory.slice(fromStem.length));
+      }
+    }
+  }
   for (const path of candidates)
     if (
       documentMove
