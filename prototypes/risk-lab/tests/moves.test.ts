@@ -113,6 +113,20 @@ describe("readable movement replay", () => {
     expect(aligned.files[ref]).toBe("[[raw/Projects/c]]");
     expect(aligned.files[a]).toBeUndefined();
   });
+  it("keeps offline edits when a known source directory moves remotely", () => {
+    const from = "raw/Areas/健康/睡眠",
+      to = "raw/Projects/减脂/睡眠",
+      note = from + "/记录.md",
+      base = snapshot({ [note]: "original", [ref]: "[[raw/Areas/健康/睡眠/记录]]" }),
+      remoteFiles = moveNote(base.files, from, to).files;
+    const aligned = alignMoves(
+      base,
+      { ...base.files, [note]: "offline edit" },
+      snapshot(remoteFiles, [record(1, from, to)]),
+    );
+    expect(aligned.files[to + "/记录.md"]).toBe("offline edit");
+    expect(aligned.files[ref]).toBe("[[raw/Projects/减脂/睡眠/记录]]");
+  });
   it("preserves an offline deletion without resurrecting the old path", () => {
     const aligned = alignMoves(
       snapshot({ [a]: "original" }),

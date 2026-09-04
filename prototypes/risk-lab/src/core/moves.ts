@@ -39,20 +39,23 @@ export function alignMoves(
   for (const move of all.slice(known.length)) {
     const documentMove = move.from.endsWith(".md");
     const stem = documentMove ? move.from.slice(0, -3) : move.from;
+    const belongsToMove = (p: string) =>
+      documentMove
+        ? p === move.from ||
+          [".opml", ".relations.yaml", ".note.yaml"].some(
+            (ext) => p === stem + ext,
+          ) ||
+          p.startsWith(stem + ".assets/")
+        : p.startsWith(stem + "/");
     const localBundle = [
       ...Object.keys(files),
       ...Object.keys(attachments),
-    ].some(
-      (p) =>
-        documentMove
-          ? p === move.from ||
-            [".opml", ".relations.yaml", ".note.yaml"].some(
-              (ext) => p === stem + ext,
-            ) ||
-            p.startsWith(stem + ".assets/")
-          : p.startsWith(stem + "/"),
-    );
-    if (!(move.from in baseFiles) && localBundle)
+    ].some(belongsToMove);
+    const baseBundle = [
+      ...Object.keys(baseFiles),
+      ...Object.keys(baseAttachments),
+    ].some(belongsToMove);
+    if (!baseBundle && localBundle)
       throw new Error(
         `本机新增内容与历史移动同名，无法确认归属：${move.from}；请先导出草稿`,
       );
