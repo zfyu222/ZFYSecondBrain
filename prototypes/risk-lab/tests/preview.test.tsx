@@ -2,7 +2,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MarkdownPreview } from "../src/MarkdownPreview";
-import { inspectMarkdown, resolveNoteLink } from "../src/core/preview";
+import { backlinksFor, inspectMarkdown, resolveNoteLink } from "../src/core/preview";
 
 const owner = "raw/Inbox/开始.md";
 const files = {
@@ -25,6 +25,16 @@ const render = (source: string) =>
   );
 
 describe("portable note navigation", () => {
+  it("finds Markdown and Wiki backlinks by their resolved portable paths", () => {
+    const source = {
+      "raw/Inbox/目标.md": "# 目标",
+      "raw/Areas/引用.md": "[[raw/Inbox/目标#结论]]\n[普通](../Inbox/目标.md)",
+      "raw/Areas/无关.md": "[[raw/Areas/引用]]",
+    };
+    expect(backlinksFor("raw/Inbox/目标.md", source)).toEqual([
+      { source: "raw/Areas/引用.md" },
+    ]);
+  });
   it("resolves root, relative, percent-encoded, same-file and OPML paths", () => {
     expect(
       resolveNoteLink("raw/Areas/健康/睡眠#睡眠与食欲", owner, files),

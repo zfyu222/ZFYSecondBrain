@@ -125,6 +125,19 @@ select:focus-visible {
   padding: 6px 8px;
   font-size: 11px;
 }
+.backlinks {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  color: #627368;
+  font-size: 11px;
+}
+.backlinks button {
+  padding: 3px 6px;
+  font-size: 11px;
+}
 .search {
   width: 100%;
   background: #f8faf6;

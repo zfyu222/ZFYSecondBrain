@@ -30,6 +30,7 @@ import {
   restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
+import { backlinksFor } from "./core/preview";
 import {
   isFavorite,
   noteTags,
@@ -477,6 +478,10 @@ function App() {
     }
   });
   const activeFavorite = hasMd && favoriteNotes.includes(active);
+  const backlinks = backlinksFor(
+    active + (hasMd ? ".md" : ".opml"),
+    files,
+  ).filter((item) => item.source !== active + ".md");
   let activeTags: string[] = [];
   if (hasMd) {
     try {
@@ -685,6 +690,21 @@ function App() {
                     }
                   >
                     #{tag} ×
+                  </button>
+                ))}
+              </div>
+            )}
+            {backlinks.length > 0 && (
+              <div className="backlinks" aria-label="反向链接">
+                被引用于：
+                {backlinks.map((item) => (
+                  <button
+                    key={item.source}
+                    disabled={busy}
+                    onClick={() => openNote(item.source.slice(0, -3), "markdown")}
+                  >
+                    {item.source.split("/").pop()}
+                    {item.heading ? ` · ${item.heading}` : ""}
                   </button>
                 ))}
               </div>

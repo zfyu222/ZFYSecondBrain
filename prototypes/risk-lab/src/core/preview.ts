@@ -142,6 +142,7 @@ export type NoteLink =
   | { kind: "missing"; path: string }
   | { kind: "attachment"; path: string }
   | { kind: "note"; path: string; heading?: string };
+export type Backlink = { source: string; heading?: string };
 export function resolveNoteLink(
   target: string,
   owner: string,
@@ -193,6 +194,37 @@ export function resolveNoteLink(
   if (!actual) return { kind: "missing", path: resolved };
   if (!/\.(md|opml)$/.test(actual)) return { kind: "attachment", path: actual };
   return { kind: "note", path: actual, heading };
+}
+
+/** Find Markdown sources that resolve to the same portable target path. */
+export function backlinksFor(
+  target: string,
+  files: Record<string, string>,
+): Backlink[] {
+  const found = new Map<string, Backlink>();
+  for (const [source, markdown] of Object.entries(files)) {
+    if (!source.endsWith(".md")) continue;
+    try {
+      const walk = (node: PreviewNode) => {
+        const raw =
+          node.type === "wikiLink" || node.type === "embed"
+            ? node.value
+            : node.type === "link"
+              ? node.url
+              : undefined;
+        if (raw) {
+          const resolved = resolveNoteLink(raw, source, files);
+          if (resolved.kind === "note" && resolved.path === target)
+            found.set(source, { source, heading: resolved.heading });
+        }
+        node.children?.forEach(walk);
+      };
+      walk(parsePreview(markdown));
+    } catch {
+      // A malformed source should never disable browsing other readable notes.
+    }
+  }
+  return [...found.values()].sort((a, b) => a.source.localeCompare(b.source));
 }
 
 /** Keep community parsing, adapt its output to our path policy and text-only risk scope. */
