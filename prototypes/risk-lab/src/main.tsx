@@ -29,9 +29,10 @@ import {
   type TrashEntry,
   restoreEmergencyExport,
 } from "./local";
-import { serializeOpml, topic } from "./core/formats";
+import { parseOpml, serializeOpml, topic } from "./core/formats";
 import { documentTitle } from "./core/document-title";
 import { mapFromMarkdown } from "./core/map-from-markdown";
+import { markdownFromMap } from "./core/markdown-from-map";
 import {
   isFavorite,
   noteTags,
@@ -567,6 +568,19 @@ function App() {
     });
     setView("map");
   }
+  function enableMarkdownView() {
+    if (!hasMap || hasMd || editingLocked) return;
+    try {
+      update({
+        [`${active}.md`]: markdownFromMap(
+          parseOpml(filesRef.current[active + ".opml"]),
+        ),
+      });
+      setView("markdown");
+    } catch (error) {
+      setError(String(error));
+    }
+  }
   function changeSoftLinks(nextLinks: string[]) {
     const path = active + ".md";
     try {
@@ -1069,6 +1083,11 @@ function App() {
           {hasMd && !hasMap && (
             <button disabled={editingLocked} onClick={enableMapView}>
               为本文启用导图
+            </button>
+          )}
+          {hasMap && !hasMd && (
+            <button disabled={editingLocked} onClick={enableMarkdownView}>
+              为本文生成 Markdown
             </button>
           )}
           <span>独立编辑与保存 · AI 双视图同步尚未实现</span>
