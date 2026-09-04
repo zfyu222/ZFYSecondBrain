@@ -422,6 +422,11 @@ function relocateRecent(
   }
   return next;
 }
+function relocateHistoryPath(path: string, from: string, to: string) {
+  if (from.endsWith(".md") && to.endsWith(".md"))
+    return path === from ? to : path;
+  return path.startsWith(from + "/") ? to + path.slice(from.length) : path;
+}
 function checkedSnapshot(input: unknown): Snapshot {
   if (!input || typeof input !== "object") throw new Error("无效服务端快照");
   const snapshot = input as Snapshot;
@@ -596,16 +601,34 @@ async function resumeMove(db: LocalVault, row: LocalState) {
     throw new Error(payload.error ?? "移动失败");
   }
   const moved = checkedSnapshot(payload);
-  return db.update(row.version, (r) => ({
-    ...r,
-    files: moved.files,
-    attachments: moved.attachments ?? {},
-    base: moved,
-    pendingMove: null,
-    recent: r.pendingMove
-      ? relocateRecent(r.recent, r.pendingMove.from, r.pendingMove.to)
-      : r.recent,
-  }));
+  return db.transaction("rw", db.vault, db.history, async () => {
+    const current = await db.vault.get("vault");
+    if (!current || current.version !== row.version)
+      throw new Error(
+        "另一个标签页已修改本机数据。当前草稿仍在编辑器，可先导出，再重新载入。",
+      );
+    const pending = current.pendingMove;
+    if (pending) {
+      const points = await db.history.toArray();
+      for (const point of points) {
+        const path = relocateHistoryPath(point.path, pending.from, pending.to);
+        if (path !== point.path) await db.history.update(point.id, { path });
+      }
+    }
+    const next = {
+      ...current,
+      version: current.version + 1,
+      files: moved.files,
+      attachments: moved.attachments ?? {},
+      base: moved,
+      pendingMove: null,
+      recent: pending
+        ? relocateRecent(current.recent, pending.from, pending.to)
+        : current.recent,
+    };
+    await db.vault.put(next);
+    return next;
+  });
 }
 export async function moveDocument(db: LocalVault, from: string, to: string) {
   let row = await synchronize(db);

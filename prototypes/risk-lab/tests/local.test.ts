@@ -370,6 +370,20 @@ describe("local persistence and sync queue", () => {
         "raw/Areas/健康/睡眠/研究/b": "2026-09-03T02:00:00.000Z",
       },
     }));
+    await db.history.bulkAdd([
+      {
+        id: crypto.randomUUID(),
+        path: "raw/Areas/健康/睡眠/a.md",
+        at: "2026-09-03T00:00:00.000Z",
+        content: "old a",
+      },
+      {
+        id: crypto.randomUUID(),
+        path: "raw/Areas/健康/睡眠/研究/b.md",
+        at: "2026-09-03T00:00:00.000Z",
+        content: "old b",
+      },
+    ]);
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url) =>
@@ -395,6 +409,12 @@ describe("local persistence and sync queue", () => {
       "raw/Projects/减脂/睡眠/a": "2026-09-03T01:00:00.000Z",
       "raw/Projects/减脂/睡眠/研究/b": "2026-09-03T02:00:00.000Z",
     });
+    expect(
+      (await db.history.toArray()).map((point) => point.path).sort(),
+    ).toEqual([
+      "raw/Projects/减脂/睡眠/a.md",
+      "raw/Projects/减脂/睡眠/研究/b.md",
+    ]);
   });
   async function conflicting() {
     const db = await fixture(),
