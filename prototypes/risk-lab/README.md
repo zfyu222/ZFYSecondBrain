@@ -111,7 +111,7 @@ pnpm --filter @zfy/risk-lab exec tsx server/restore-cli.ts minimal .prototype-da
 
 ## 尚未完成
 
-完整 OFM 预览、大文件/真实媒体与浏览器配额验收、图内节点级冲突合并、未知元数据/图谱的全引用重写、真实多设备验收、正式历史/回收站/备份恢复、身份验证、AI、NAS 和原生端。完整限制见[契约](../../docs/architecture/prototype-contracts.md)与[验证报告](../../docs/architecture/prototype-validation.md)。
+完整 OFM 预览、大文件/真实媒体与浏览器配额验收、图内节点级冲突合并、未知元数据/图谱的全引用重写、真实多设备验收、正式历史/回收站/备份恢复、身份验证、AI、Linux 服务器部署和原生端。完整限制见[契约](../../docs/architecture/prototype-contracts.md)与[验证报告](../../docs/architecture/prototype-validation.md)。
 
 依赖均通过 npm/pnpm 引入现有开源组件，版本由根目录锁文件固定。仅允许 esbuild 的必要安装构建脚本。
 

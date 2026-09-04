@@ -30,7 +30,7 @@
 - [笔记模板](./note-templates.md)：仅提供创建起点，不持续约束文档字段和排版。
 - [安卓今日 Inbox 桌面控件](./android-inbox-widget.md)：今日列表、快速新建与简单编辑。
 - [撤销、历史记录与备份恢复](./history-and-recovery.md)：粗粒度版本与回收站；外部备份分完整、标准（`raw` + `derived`）和最小化（仅 `raw`）三档。
-- [客户端平台与 NAS 部署](./platforms-and-deployment.md)：Web 优先，另支持安卓和 Windows，服务端自托管于群晖 NAS。
+- [客户端平台与 Linux 服务器部署](./platforms-and-deployment.md)：Web 优先，另支持安卓和 Windows，服务端自托管于 Linux 服务器。
 - [Web 首版范围与离线边界](./web-first-release.md)：单用户单库、首版纳入与后续实施功能、离线保存及验收流程。
 
 ## 已确认延后的进阶功能
@@ -48,6 +48,6 @@
 
 具体问题及其状态以[需求总览](./overview.md)为统一入口：
 
-- 首次交付的 NAS 远程访问要求。
+- 首次交付的 Linux 服务器远程访问要求。
 - 摘要极短文本的边界规则。
 - 按[技术方案](../architecture/technical-design.md)与[验证计划](../architecture/validation-and-milestones.md)核对运行环境、平台兼容、格式契约、同步和管理员隔离。
