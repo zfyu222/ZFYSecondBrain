@@ -30,6 +30,7 @@ import {
   restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
+import { documentTitle } from "./core/document-title";
 import {
   isFavorite,
   noteTags,
@@ -613,12 +614,10 @@ function App() {
     }
   }
   let title = fileTitle;
-  if (hasMd) {
-    try {
-      title = noteTitle(files[active + ".md"]) ?? fileTitle;
-    } catch {
-      // Keep source editable if user-provided metadata is malformed.
-    }
+  try {
+    title = documentTitle(files, active);
+  } catch {
+    // Keep source editable if user-provided metadata or map is malformed.
   }
   if (hasMd) {
     try {
@@ -631,11 +630,10 @@ function App() {
     ? recentDocuments(row).filter((path) => notes.includes(path))
     : [];
   const displayTitle = (stem: string) => {
-    const fallback = stem.split("/").pop() ?? "未命名";
     try {
-      return noteTitle(files[stem + ".md"] ?? "") ?? fallback;
+      return documentTitle(files, stem);
     } catch {
-      return fallback;
+      return stem.split("/").pop() ?? "未命名";
     }
   };
   const editingLocked = busy || !!row?.conflict || !!row?.pendingMove;
