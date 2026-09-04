@@ -33,7 +33,7 @@ import { parseOpml, serializeOpml, setMapTitle, topic } from "./core/formats";
 import { documentTitle } from "./core/document-title";
 import { mapFromMarkdown } from "./core/map-from-markdown";
 import { markdownFromMap } from "./core/markdown-from-map";
-import { dualViewChanges, readDualView } from "./core/dual-view";
+import { dualViewChanges, readDualView, recordDualView } from "./core/dual-view";
 import {
   isFavorite,
   noteTags,
@@ -591,6 +591,16 @@ function App() {
       setError(String(error));
     }
   }
+  function recordDualBaseline() {
+    if (!hasMd || !hasMap || editingLocked) return;
+    update({
+      [active + ".note.yaml"]: recordDualView(
+        filesRef.current[active + ".md"],
+        filesRef.current[active + ".opml"],
+        new Date().toISOString(),
+      ),
+    });
+  }
   function changeSoftLinks(nextLinks: string[]) {
     const path = active + ".md";
     try {
@@ -1113,6 +1123,11 @@ function App() {
           {hasMap && !hasMd && (
             <button disabled={editingLocked} onClick={enableMarkdownView}>
               为本文生成 Markdown
+            </button>
+          )}
+          {hasMd && hasMap && (
+            <button disabled={editingLocked} onClick={recordDualBaseline}>
+              记录当前双视图基线
             </button>
           )}
           <span>独立编辑与保存 · AI 双视图同步尚未实现</span>
