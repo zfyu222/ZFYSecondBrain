@@ -69,6 +69,13 @@ export type TrashEntry = {
   files: Record<string, string>;
   attachments: Attachments;
 };
+export type NotificationEntry = {
+  id: string;
+  at: string;
+  level: "info" | "error";
+  message: string;
+  read: boolean;
+};
 const emergencyExportSchema = z
   .object({
     protocolVersion: z.literal(2),
@@ -87,6 +94,7 @@ export class LocalVault extends Dexie {
   recovery!: Table<Recovery, string>;
   history!: Table<HistoryPoint, string>;
   trash!: Table<TrashEntry, string>;
+  notifications!: Table<NotificationEntry, string>;
   constructor(name = "zfy-risk-lab-v1") {
     super(name);
     this.version(1).stores({ vault: "id" });
@@ -102,6 +110,13 @@ export class LocalVault extends Dexie {
       recovery: "id,at",
       history: "id,path,at",
       trash: "id,at,stem",
+    });
+    this.version(6).stores({
+      vault: "id",
+      recovery: "id,at",
+      history: "id,path,at",
+      trash: "id,at,stem",
+      notifications: "id,at,read",
     });
   }
   async read() {
@@ -163,6 +178,31 @@ export class LocalVault extends Dexie {
       return next;
     });
   }
+}
+
+export async function addNotification(
+  db: LocalVault,
+  level: NotificationEntry["level"],
+  message: string,
+  at = new Date().toISOString(),
+) {
+  const entry: NotificationEntry = {
+    id: crypto.randomUUID(),
+    at,
+    level,
+    message,
+    read: false,
+  };
+  await db.notifications.add(entry);
+  return entry;
+}
+
+export async function recentNotifications(db: LocalVault, limit = 30) {
+  return db.notifications.orderBy("at").reverse().limit(limit).toArray();
+}
+
+export async function markNotificationRead(db: LocalVault, id: string) {
+  await db.notifications.update(id, { read: true });
 }
 
 export async function moveToTrash(
