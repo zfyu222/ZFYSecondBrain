@@ -26,6 +26,10 @@ import {
   type HistoryPoint,
   moveToTrash,
   restoreTrashEntry,
+  addNotification,
+  recentNotifications,
+  markNotificationRead,
+  type NotificationEntry,
   type TrashEntry,
   restoreEmergencyExport,
 } from "./local";
@@ -129,6 +133,7 @@ function App() {
   const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
   const [backlinks, setBacklinks] = useState<{ source: string; heading?: string }[]>([]);
   const [trashEntries, setTrashEntries] = useState<TrashEntry[]>([]);
+  const [notifications, setNotifications] = useState<NotificationEntry[]>([]);
   const [destination, setDestination] = useState("raw/Areas/开始使用.md");
   const [folderDestination, setFolderDestination] = useState("");
   const [jump, setJump] = useState<{ path: string; heading: string } | null>(
@@ -272,6 +277,7 @@ function App() {
     } catch (e) {
       setError(String(e));
       setMessage("同步失败 · 本机数据保留");
+      void addNotification(db, "error", "同步失败：" + String(e));
       if (!saveFailure.current) accept(await db.read());
     } finally {
       operationBusy.current = false;
@@ -289,6 +295,7 @@ function App() {
       setMessage("选择已保存，请再次同步");
     } catch (e) {
       setError(String(e));
+      void addNotification(db, "error", "冲突选择未保存：" + String(e));
     } finally {
       operationBusy.current = false;
       setBusy(false);
@@ -813,6 +820,11 @@ function App() {
       .then(setTrashEntries)
       .catch((error) => setError(String(error)));
   }, [row?.version]);
+  useEffect(() => {
+    void recentNotifications(db)
+      .then(setNotifications)
+      .catch((error) => setError(String(error)));
+  }, [row?.version, error]);
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -1148,6 +1160,26 @@ function App() {
             UI 在本机浏览器运行 · API 仅 localhost
           </span>
         </div>
+        {notifications.some((item) => !item.read) && (
+          <div className="notice" aria-label="待处理通知">
+            {notifications.filter((item) => !item.read).slice(0, 3).map((item) => (
+              <button
+                key={item.id}
+                onClick={() =>
+                  void markNotificationRead(db, item.id).then(() =>
+                    setNotifications((items) =>
+                      items.map((entry) =>
+                        entry.id === item.id ? { ...entry, read: true } : entry,
+                      ),
+                    ),
+                  )
+                }
+              >
+                {item.level === "error" ? "失败：" : "通知："}{item.message}
+              </button>
+            ))}
+          </div>
+        )}
         {error && (
           <div className="notice error" role="alert">
             {error}

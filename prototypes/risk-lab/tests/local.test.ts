@@ -2,9 +2,12 @@ import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   LocalVault,
+  addNotification,
   moveDocument,
   readEmergencyExport,
   recentDocuments,
+  recentNotifications,
+  markNotificationRead,
   rememberRecent,
   restoreEmergencyExport,
   restoreHistoryPoint,
@@ -38,6 +41,22 @@ afterEach(async () => {
   }
 });
 describe("local persistence and sync queue", () => {
+  it("persists notification entries and marks one as read", async () => {
+    const db = await fixture();
+    const first = await addNotification(
+      db,
+      "info",
+      "整理完成",
+      "2026-09-04T01:00:00.000Z",
+    );
+    await addNotification(db, "error", "同步失败", "2026-09-04T02:00:00.000Z");
+    expect((await recentNotifications(db)).map((entry) => entry.message)).toEqual([
+      "同步失败",
+      "整理完成",
+    ]);
+    await markNotificationRead(db, first.id);
+    expect((await db.notifications.get(first.id))?.read).toBe(true);
+  });
   it("reopens saved data and rejects stale tabs", async () => {
     const db = await fixture(),
       row = await db.read();
