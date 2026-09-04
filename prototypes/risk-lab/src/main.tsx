@@ -617,6 +617,14 @@ function App() {
   const recentNotes = row
     ? recentDocuments(row).filter((path) => notes.includes(path))
     : [];
+  const displayTitle = (stem: string) => {
+    const fallback = stem.split("/").pop() ?? "未命名";
+    try {
+      return noteTitle(files[stem + ".md"] ?? "") ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
   const editingLocked = busy || !!row?.conflict || !!row?.pendingMove;
   const matchesSearch = (stem: string) =>
     matchesNoteSearch(
@@ -780,7 +788,7 @@ function App() {
                 );
               }}
             >
-              <span>{n.split("/").pop()}</span>
+              <span>{displayTitle(n)}</span>
               <small>{n.split("/").slice(1, -1).join(" / ")}</small>
             </button>
           ))}
@@ -803,7 +811,7 @@ function App() {
                     )
                   }
                 >
-                  <span>{n.split("/").pop()}</span>
+                  <span>{displayTitle(n)}</span>
                   <small>{n.split("/").slice(1, -1).join(" / ")}</small>
                 </button>
               ))}
@@ -825,7 +833,7 @@ function App() {
                     openNote(n, "markdown");
                   }}
                 >
-                  <span>★ {n.split("/").pop()}</span>
+                  <span>★ {displayTitle(n)}</span>
                   <small>{n.split("/").slice(1, -1).join(" / ")}</small>
                 </button>
               ))}
