@@ -30,7 +30,6 @@ import {
   restoreEmergencyExport,
 } from "./local";
 import { serializeOpml, topic } from "./core/formats";
-import { backlinksFor } from "./core/preview";
 import {
   isFavorite,
   noteTags,
@@ -121,6 +120,7 @@ function App() {
   const [tagDraft, setTagDraft] = useState("");
   const [softLinkDraft, setSoftLinkDraft] = useState("");
   const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
+  const [backlinks, setBacklinks] = useState<{ source: string; heading?: string }[]>([]);
   const [trashEntries, setTrashEntries] = useState<TrashEntry[]>([]);
   const [destination, setDestination] = useState("raw/Areas/开始使用.md");
   const [jump, setJump] = useState<{ path: string; heading: string } | null>(
@@ -531,10 +531,6 @@ function App() {
     }
   });
   const activeFavorite = hasMd && favoriteNotes.includes(active);
-  const backlinks = backlinksFor(
-    active + (hasMd ? ".md" : ".opml"),
-    files,
-  ).filter((item) => item.source !== active + ".md");
   let activeTags: string[] = [];
   let activeSoftLinks: string[] = [];
   if (hasMd) {
@@ -586,6 +582,22 @@ function App() {
       .then(setHistoryPoints)
       .catch((error) => setError(String(error)));
   }, [active, hasMd, row?.version]);
+  useEffect(() => {
+    let cancelled = false;
+    void import("./core/preview")
+      .then(({ backlinksFor }) => {
+        if (!cancelled)
+          setBacklinks(
+            backlinksFor(active + (hasMd ? ".md" : ".opml"), files).filter(
+              (item) => item.source !== active + ".md",
+            ),
+          );
+      })
+      .catch((error) => !cancelled && setError(String(error)));
+    return () => {
+      cancelled = true;
+    };
+  }, [active, hasMd, hasMap, row?.version]);
   useEffect(() => {
     void db.trash
       .orderBy("at")
