@@ -35,11 +35,13 @@ export default function MapEditor({
   relationsText,
   stem,
   onChange,
+  onOpenReference,
 }: {
   opml: string;
   relationsText?: string;
   stem: string;
   onChange: (changes: Record<string, string | undefined>) => void;
+  onOpenReference?: (target: string) => void;
 }) {
   const parsed = useMemo(() => {
     try {
@@ -388,7 +390,7 @@ export default function MapEditor({
               })
             }
           >
-            {!["topic", "heading", "claim", "example", "question"].includes(
+            {!["topic", "heading", "claim", "example", "question", "reference"].includes(
               current.node.type,
             ) && (
               <option value={current.node.type}>
@@ -400,8 +402,30 @@ export default function MapEditor({
             <option value="claim">观点</option>
             <option value="example">例子</option>
             <option value="question">问题</option>
+            <option value="reference">引用</option>
           </select>
         </label>
+        <label>
+          引用路径
+          <input
+            aria-label="引用路径"
+            value={current.node.attrs.url ?? ""}
+            onChange={(e) =>
+              change((_map, row) => {
+                const target = e.target.value.trim();
+                if (target) row.node.attrs.url = target;
+                else delete row.node.attrs.url;
+              })
+            }
+            placeholder="raw/Areas/健康/睡眠#睡眠与食欲"
+          />
+        </label>
+        <button
+          disabled={!current.node.attrs.url || !onOpenReference}
+          onClick={() => onOpenReference?.(current.node.attrs.url)}
+        >
+          打开引用
+        </button>
         <div className="relation-controls">
           <select
             aria-label="语义关系类型"

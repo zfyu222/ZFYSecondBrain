@@ -35,6 +35,16 @@ describe("portable note navigation", () => {
       { source: "raw/Areas/引用.md" },
     ]);
   });
+  it("finds portable OPML url attributes as backlinks", () => {
+    const source = {
+      "raw/Inbox/目标.md": "# 目标",
+      "raw/Areas/导图.opml":
+        '<opml version="2.0"><head><title>导图</title></head><body><outline text="引用" type="reference" url="../Inbox/目标.md#结论"/></body></opml>',
+    };
+    expect(backlinksFor("raw/Inbox/目标.md", source)).toEqual([
+      { source: "raw/Areas/导图.opml", heading: "结论" },
+    ]);
+  });
   it("resolves root, relative, percent-encoded, same-file and OPML paths", () => {
     expect(
       resolveNoteLink("raw/Areas/健康/睡眠#睡眠与食欲", owner, files),

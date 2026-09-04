@@ -516,6 +516,33 @@ function App() {
     setView(nextView);
     rememberOpened(path);
   }
+  function openMapReference(target: string) {
+    void import("./core/preview")
+      .then(({ resolveNoteLink }) => {
+        const resolved = resolveNoteLink(
+          target,
+          active + ".opml",
+          filesRef.current,
+        );
+        if (resolved.kind === "note") {
+          openLinkedNote(resolved.path, resolved.heading);
+          return;
+        }
+        if (resolved.kind === "missing") {
+          setError(`引用目标不存在：${resolved.path}`);
+          return;
+        }
+        if (resolved.kind === "attachment") {
+          setError(`导图引用指向附件，暂不能在导图中打开：${resolved.path}`);
+          return;
+        }
+        setError(
+          "导图引用只能打开知识库内的笔记：" +
+            (resolved.kind === "blocked" ? resolved.reason : resolved.href),
+        );
+      })
+      .catch((error) => setError(String(error)));
+  }
   function toggleFavorite() {
     const path = active + ".md";
     try {
@@ -768,7 +795,8 @@ function App() {
         if (!cancelled)
           setBacklinks(
             backlinksFor(active + (hasMd ? ".md" : ".opml"), files).filter(
-              (item) => item.source !== active + ".md",
+              (item) =>
+                item.source !== active + ".md" && item.source !== active + ".opml",
             ),
           );
       })
@@ -1021,7 +1049,7 @@ function App() {
                   <button
                     key={item.source}
                     disabled={busy}
-                    onClick={() => openNote(item.source.slice(0, -3), "markdown")}
+                    onClick={() => openLinkedNote(item.source, item.heading)}
                   >
                     {item.source.split("/").pop()}
                     {item.heading ? ` · ${item.heading}` : ""}
@@ -1240,6 +1268,7 @@ function App() {
                   relationsText={files[active + ".relations.yaml"]}
                   stem={active}
                   onChange={update}
+                  onOpenReference={openMapReference}
                 />
               </Suspense>
             </EditorBoundary>

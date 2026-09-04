@@ -12,7 +12,7 @@ import type { PluggableList, Plugin } from "unified";
 import GithubSlugger from "github-slugger";
 import type { Root } from "mdast";
 import { pathSchema } from "./contracts";
-import { safeYaml } from "./formats";
+import { flatten, parseOpml, safeYaml } from "./formats";
 
 export type PreviewNode = {
   type: string;
@@ -196,15 +196,25 @@ export function resolveNoteLink(
   return { kind: "note", path: actual, heading };
 }
 
-/** Find Markdown sources that resolve to the same portable target path. */
+/** Find Markdown and OPML sources that resolve to the same portable target path. */
 export function backlinksFor(
   target: string,
   files: Record<string, string>,
 ): Backlink[] {
   const found = new Map<string, Backlink>();
-  for (const [source, markdown] of Object.entries(files)) {
-    if (!source.endsWith(".md")) continue;
+  for (const [source, content] of Object.entries(files)) {
     try {
+      if (source.endsWith(".opml")) {
+        for (const { node } of flatten(parseOpml(content))) {
+          const raw = node.attrs.url;
+          if (!raw) continue;
+          const resolved = resolveNoteLink(raw, source, files);
+          if (resolved.kind === "note" && resolved.path === target)
+            found.set(source, { source, heading: resolved.heading });
+        }
+        continue;
+      }
+      if (!source.endsWith(".md")) continue;
       const walk = (node: PreviewNode) => {
         const raw =
           node.type === "wikiLink" || node.type === "embed"
@@ -219,7 +229,7 @@ export function backlinksFor(
         }
         node.children?.forEach(walk);
       };
-      walk(parsePreview(markdown));
+      walk(parsePreview(content));
     } catch {
       // A malformed source should never disable browsing other readable notes.
     }
