@@ -33,6 +33,7 @@ import { parseOpml, serializeOpml, setMapTitle, topic } from "./core/formats";
 import { documentTitle } from "./core/document-title";
 import { mapFromMarkdown } from "./core/map-from-markdown";
 import { markdownFromMap } from "./core/markdown-from-map";
+import { dualViewChanges, readDualView } from "./core/dual-view";
 import {
   isFavorite,
   noteTags,
@@ -622,6 +623,17 @@ function App() {
   const fileTitle = active.split("/").pop() ?? "未命名";
   const hasMd = `${active}.md` in files,
     hasMap = `${active}.opml` in files;
+  let dualStatus = "";
+  if (hasMd && hasMap) {
+    try {
+      const changes = dualViewChanges(
+        readDualView(files[active + ".note.yaml"] ?? ""),
+        files[active + ".md"],
+        files[active + ".opml"],
+      );
+      dualStatus = !changes.known ? "双视图尚未建立共同版本" : !changes.markdown && !changes.opml ? "双视图已记录为一致" : `待同步：${changes.markdown ? "Markdown" : ""}${changes.markdown && changes.opml ? "、" : ""}${changes.opml ? "导图" : ""}`;
+    } catch { dualStatus = "双视图记录无效，原文未修改"; }
+  }
   const favoriteNotes = notes.filter((path) => {
     try {
       return isFavorite(files[path + ".md"] ?? "");
@@ -1104,6 +1116,7 @@ function App() {
             </button>
           )}
           <span>独立编辑与保存 · AI 双视图同步尚未实现</span>
+          {dualStatus && <span>{dualStatus}</span>}
         </div>
         {row?.pendingMove && (
           <div className="notice">
