@@ -408,12 +408,17 @@ function relocateRecent(
   from: string,
   to: string,
 ) {
-  const source = from.slice(0, -3),
-    destination = to.slice(0, -3),
+  const documentMove = from.endsWith(".md") && to.endsWith(".md"),
+    source = documentMove ? from.slice(0, -3) : from,
+    destination = documentMove ? to.slice(0, -3) : to,
     next = { ...recent };
-  if (Object.hasOwn(next, source)) {
-    next[destination] = next[source];
-    delete next[source];
+  for (const [path, at] of Object.entries(recent ?? {})) {
+    if (path !== source && (documentMove || !path.startsWith(source + "/")))
+      continue;
+    const target = destination + path.slice(source.length);
+    if (!Object.hasOwn(next, target) || next[target].localeCompare(at) < 0)
+      next[target] = at;
+    if (target !== path) delete next[path];
   }
   return next;
 }

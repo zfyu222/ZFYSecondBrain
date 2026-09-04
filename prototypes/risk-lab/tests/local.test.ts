@@ -354,6 +354,48 @@ describe("local persistence and sync queue", () => {
     expect(after.files[p]).toBeUndefined();
     expect(after.recent).toEqual({ "raw/Areas/a": "2026-09-03T01:00:00.000Z" });
   });
+  it("relocates every recent document below a moved directory", async () => {
+    const db = await fixture(),
+      row = await db.read(),
+      files = {
+        "raw/Areas/健康/睡眠/a.md": "a",
+        "raw/Areas/健康/睡眠/研究/b.md": "b",
+      };
+    await db.update(row.version, (state) => ({
+      ...state,
+      files,
+      base: { revision: "folder-base", files },
+      recent: {
+        "raw/Areas/健康/睡眠/a": "2026-09-03T01:00:00.000Z",
+        "raw/Areas/健康/睡眠/研究/b": "2026-09-03T02:00:00.000Z",
+      },
+    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) =>
+        Response.json(
+          url === "/api/move"
+            ? {
+                revision: "folder-moved",
+                files: {
+                  "raw/Projects/减脂/睡眠/a.md": "a",
+                  "raw/Projects/减脂/睡眠/研究/b.md": "b",
+                },
+              }
+            : { revision: "folder-base", files },
+        ),
+      ),
+    );
+    const moved = await moveDocument(
+      db,
+      "raw/Areas/健康/睡眠",
+      "raw/Projects/减脂/睡眠",
+    );
+    expect(moved.recent).toEqual({
+      "raw/Projects/减脂/睡眠/a": "2026-09-03T01:00:00.000Z",
+      "raw/Projects/减脂/睡眠/研究/b": "2026-09-03T02:00:00.000Z",
+    });
+  });
   async function conflicting() {
     const db = await fixture(),
       row = await db.read();
