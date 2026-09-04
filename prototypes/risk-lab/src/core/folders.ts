@@ -19,11 +19,14 @@ export function appearsInFolder(
   }
 }
 
-/** Build a readable directory tree from portable note stems without flattening depth. */
-export function folderTree(stems: string[]) {
+/**
+ * Build a readable directory tree from portable note stems and virtual entrances.
+ * A soft link names a directory (rather than a copied note), so all of its path
+ * segments deliberately remain selectable even when no physical file lives there.
+ */
+export function folderTree(stems: string[], virtualFolders: string[] = []) {
   const roots: FolderNode[] = [];
-  for (const stem of stems) {
-    const parts = stem.split("/").slice(0, -1);
+  const add = (parts: string[]) => {
     let level = roots;
     for (let index = 0; index < parts.length; index++) {
       const path = parts.slice(0, index + 1).join("/");
@@ -34,6 +37,12 @@ export function folderTree(stems: string[]) {
       }
       level = node.children;
     }
+  };
+  for (const stem of stems) {
+    add(stem.split("/").slice(0, -1));
+  }
+  for (const folder of virtualFolders) {
+    add(folder.split("/"));
   }
   const sort = (nodes: FolderNode[]) => {
     nodes.sort((a, b) => a.name.localeCompare(b.name));

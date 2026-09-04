@@ -30,4 +30,30 @@ describe("portable folder tree", () => {
       appearsInFolder("raw/Areas/健康/实体", "---\nbad: [\n---", "raw/Areas"),
     ).toBe(true);
   });
+  it("shows virtual-only soft-link folders in the portable tree", () => {
+    expect(
+      folderTree(["raw/Inbox/记录"], ["raw/Areas/健康/睡眠"]),
+    ).toEqual([
+      {
+        path: "raw",
+        name: "raw",
+        children: [
+          {
+            path: "raw/Areas",
+            name: "Areas",
+            children: [
+              {
+                path: "raw/Areas/健康",
+                name: "健康",
+                children: [
+                  { path: "raw/Areas/健康/睡眠", name: "睡眠", children: [] },
+                ],
+              },
+            ],
+          },
+          { path: "raw/Inbox", name: "Inbox", children: [] },
+        ],
+      },
+    ]);
+  });
 });

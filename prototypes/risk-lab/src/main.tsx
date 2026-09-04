@@ -658,7 +658,15 @@ function App() {
     .filter(matchesSpace)
     .filter(matchesFolder)
     .filter(matchesSearch);
-  const folders = folderTree(notes);
+  const virtualFolders = notes.flatMap((stem) => {
+    try {
+      return softLinks(files[stem + ".md"] ?? "");
+    } catch {
+      // Invalid front matter is surfaced by the explicit metadata controls.
+      return [];
+    }
+  });
+  const folders = folderTree(notes, virtualFolders);
   useEffect(() => {
     setChoices({});
   }, [row?.conflict]);
