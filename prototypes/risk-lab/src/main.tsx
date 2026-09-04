@@ -340,7 +340,7 @@ function App() {
       setBusy(false);
     }
   }
-  async function move() {
+  async function move(target = destination) {
     if (operationBusy.current) return;
     operationBusy.current = true;
     setBusy(true);
@@ -349,8 +349,8 @@ function App() {
       await writeQueue.current;
       if (saveFailure.current)
         throw new Error("请先导出未保存草稿，再重新载入");
-      accept(await moveDocument(db, active + ".md", destination));
-      setActive(destination.slice(0, -3));
+      accept(await moveDocument(db, active + ".md", target));
+      setActive(target.slice(0, -3));
       setMessage("已移动并更新受支持的 Markdown 引用");
     } catch (e) {
       setError(String(e));
@@ -359,6 +359,11 @@ function App() {
       operationBusy.current = false;
       setBusy(false);
     }
+  }
+  function archiveCurrent() {
+    const name = active.split("/").pop();
+    if (!name) return;
+    void move(`raw/Archive/${name}.md`);
   }
   async function importMedia(file: File) {
     if (operationBusy.current || !rowRef.current) return;
@@ -865,6 +870,12 @@ function App() {
               onClick={() => void trashCurrent()}
             >
               移入回收站
+            </button>
+            <button
+              disabled={offline || editingLocked || !hasMd || active.startsWith("raw/Archive/")}
+              onClick={archiveCurrent}
+            >
+              归档
             </button>
             {hasMd && (
               <div className="tag-entry">
