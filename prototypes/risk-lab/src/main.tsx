@@ -432,7 +432,13 @@ function App() {
   }
   function newNote(kind: "markdown" | "map") {
     if (rowRef.current?.conflict || rowRef.current?.pendingMove) return;
-    const stem = `raw/Inbox/随手记-${new Date()
+    // Inbox remains the default, but a selected ordinary folder is an explicit
+    // navigation context for deliberate organization. Archive is never a creation target.
+    const parent =
+      folderPrefix.startsWith("raw/") && !folderPrefix.startsWith("raw/Archive")
+        ? folderPrefix
+        : "raw/Inbox";
+    const stem = `${parent}/随手记-${new Date()
       .toISOString()
       .replace(/[-:TZ.]/g, "")
       .slice(0, 17)}`;
