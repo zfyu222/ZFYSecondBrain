@@ -249,12 +249,17 @@ function App() {
     try {
       await writeQueue.current;
       if (saveFailure.current) throw new Error("请先处理本机保存错误");
+      const before = rowRef.current;
+      const hadLocalChanges = before ? hasUnsyncedChanges(before) : false;
       const next = await synchronize(db);
       accept(next);
       setLastCheckedAt(new Date());
       setMessage(
         next.conflict
           ? "检测到冲突 · 请保留一版"
+          : !hadLocalChanges &&
+              before?.base?.revision !== next.base?.revision
+            ? "已载入外部文件修改"
           : hasUnsyncedChanges(next)
             ? "已收到服务端确认 · 本机仍有修改待同步"
             : "已同步本地测试服务",
