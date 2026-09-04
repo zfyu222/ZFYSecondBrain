@@ -550,6 +550,19 @@ function App() {
       setError(String(error));
     }
   }
+  function enableMapView() {
+    if (!hasMd || hasMap || editingLocked) return;
+    let mapTitle = active.split("/").pop() ?? "未命名";
+    try {
+      mapTitle = noteTitle(filesRef.current[active + ".md"]) ?? mapTitle;
+    } catch {
+      // A malformed optional title must not prevent the user from keeping a map.
+    }
+    update({
+      [`${active}.opml`]: serializeOpml({ title: mapTitle, root: topic(mapTitle) }),
+    });
+    setView("map");
+  }
   function changeSoftLinks(nextLinks: string[]) {
     const path = active + ".md";
     try {
@@ -1044,6 +1057,11 @@ function App() {
           >
             思维导图
           </button>
+          {hasMd && !hasMap && (
+            <button disabled={editingLocked} onClick={enableMapView}>
+              为本文启用导图
+            </button>
+          )}
           <span>独立编辑与保存 · AI 双视图同步尚未实现</span>
         </div>
         {row?.pendingMove && (
