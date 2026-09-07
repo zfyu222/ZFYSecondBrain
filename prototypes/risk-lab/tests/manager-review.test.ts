@@ -264,5 +264,13 @@ describe("AI manager review boundary", () => {
     });
     expect(accepted.statusCode).toBe(200);
     expect((await store.snapshot()).files["raw/Areas/资料/a.md"]).toContain('tags: ["资料"]');
+    const state = await app.inject({ method: "GET", url: "/api/memory", headers });
+    const notification = state.json().notifications.find((item: { read: boolean }) => !item.read);
+    const read = await app.inject({
+      method: "POST", url: `/api/memory/notifications/${notification.id}/read`, headers, payload: {},
+    });
+    expect(read.statusCode).toBe(200);
+    expect((await app.inject({ method: "GET", url: "/api/memory", headers })).json().notifications
+      .find((item: { id: string }) => item.id === notification.id).read).toBe(true);
   });
 });

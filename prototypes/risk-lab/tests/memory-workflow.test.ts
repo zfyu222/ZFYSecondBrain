@@ -128,6 +128,14 @@ describe("daily memory workflow", () => {
     expect(reopened.notifications).toEqual([]);
   });
 
+  it("records a scheduler failure as a persistent error notification", async () => {
+    const { service } = await fixture();
+    await service.recordFailure(new Error("测试调度失败"));
+    const notification = (await service.getState()).notifications.at(-1);
+    expect(notification).toMatchObject({ level: "error", read: false });
+    expect(notification?.message).toContain("测试调度失败");
+  });
+
   it("requires capability-specific authorization and never edits raw", async () => {
     const { store, service } = await fixture();
     await expect(
