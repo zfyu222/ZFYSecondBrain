@@ -55,4 +55,42 @@ describe("controlled CIL boundary", () => {
       matches: [{ path: "raw/Areas/健康.md", excerpt: "# 睡眠 建议规律作息" }],
     });
   });
+  it("accepts an authorized, version-bound proposal without writing it", () => {
+    const proposal = {
+      path: "raw/Inbox/a.md",
+      baseRevision: "a".repeat(64),
+      content: "# 已整理",
+      rationale: "用户明确要求改写",
+    };
+    expect(
+      executeCilRequest(
+        {
+          version: 1,
+          task: "受托编辑",
+          command: "propose-change",
+          paths: ["raw/Inbox"],
+          authorization: "propose-change",
+          proposal,
+        },
+        { "raw/Inbox/a.md": "# 原文" },
+      ),
+    ).toEqual({ command: "propose-change", accepted: true, proposal });
+  });
+  it("rejects proposals outside their authorized scope", () => {
+    expect(() =>
+      validateCilRequest({
+        version: 1,
+        task: "受托编辑",
+        command: "propose-change",
+        paths: ["raw/Inbox"],
+        authorization: "propose-change",
+        proposal: {
+          path: "raw/Areas/a.md",
+          baseRevision: "a".repeat(64),
+          content: "# 变更",
+          rationale: "越界",
+        },
+      }),
+    ).toThrow("超出任务授权路径范围");
+  });
 });

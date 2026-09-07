@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { matchesNoteSearch } from "./search";
 
+const proposalSchema = z
+  .object({
+    path: z.string().startsWith("raw/").endsWith(".md"),
+    baseRevision: z.string().regex(/^[a-f\d]{64}$/i),
+    content: z.string().max(2_000_000),
+    rationale: z.string().min(1).max(2_000),
+  })
+  .strict();
+
 /** Fixed, JSON-only boundary between an AI manager and the knowledge service. */
 export const cilRequestSchema = z
   .object({
@@ -9,6 +18,7 @@ export const cilRequestSchema = z
     command: z.enum(["search", "read", "propose-change"]),
     paths: z.array(z.string().startsWith("raw/")).max(50),
     query: z.string().max(2_000).optional(),
+    proposal: proposalSchema.optional(),
     authorization: z.enum(["read", "propose-change"]),
   })
   .strict();
@@ -23,13 +33,19 @@ export function validateCilRequest(input: unknown): CilRequest {
     request.authorization !== "propose-change"
   )
     throw new Error("未经明确授权，CIL 只能读取或搜索知识库");
+  if (request.command === "propose-change") {
+    if (!request.proposal) throw new Error("变更提议必须包含可审阅的内容");
+    if (!request.paths.some((scope) => insideScope(request.proposal!.path, scope)))
+      throw new Error("变更提议超出任务授权路径范围");
+  } else if (request.proposal)
+    throw new Error("只读命令不能携带变更提议");
   return request;
 }
 
 export type CilResult =
   | { command: "search"; matches: { path: string; excerpt: string }[] }
   | { command: "read"; documents: { path: string; content: string }[] }
-  | { command: "propose-change"; accepted: true };
+  | { command: "propose-change"; accepted: true; proposal: z.infer<typeof proposalSchema> };
 
 const insideScope = (path: string, scope: string) =>
   path === scope || path.startsWith(scope.endsWith("/") ? scope : scope + "/");
@@ -43,7 +59,12 @@ export function executeCilRequest(
   files: Record<string, string>,
 ): CilResult {
   const request = validateCilRequest(input);
-  if (request.command === "propose-change") return { command: request.command, accepted: true };
+  if (request.command === "propose-change")
+    return {
+      command: request.command,
+      accepted: true,
+      proposal: request.proposal!,
+    };
   const candidates = Object.entries(files).filter(
     ([path]) =>
       path.endsWith(".md") && request.paths.some((scope) => insideScope(path, scope)),
