@@ -177,4 +177,25 @@ describe("daily memory workflow", () => {
     })).rejects.toBeInstanceOf(ConflictError);
     expect((await store.snapshot()).files["raw/Inbox/今日.md"]).toBe("# 已手工更新");
   });
+
+  it("applies a planned dual-view result only to its unchanged version", async () => {
+    const { store, service } = await fixture();
+    await service.configure(config);
+    const before = await store.snapshot();
+    await store.commit({
+      requestId: "dual-view-local-change", expectedRevision: before.revision,
+      files: { ...before.files, "raw/Inbox/今日.md": "# 今日记录\n\n已经修改" },
+    });
+    const run = await service.runManual();
+    expect(run.candidates.some((item) => item.capability === "dualView" && item.path === "raw/Inbox/今日")).toBe(true);
+    const opml = '<?xml version="1.0"?><opml version="2.0"><head><title>今日记录</title></head><body><outline text="已同步"/></body></opml>';
+    const applied = await service.applyDualView({
+      runId: run.id, stem: "raw/Inbox/今日", markdown: "# 今日记录\n\n已同步",
+      opml, rationale: "已按 Markdown 变化同步导图",
+    });
+    const snapshot = await store.snapshot();
+    expect(applied.stem).toBe("raw/Inbox/今日");
+    expect(snapshot.files["raw/Inbox/今日.opml"]).toBe(opml);
+    expect(snapshot.files["raw/Inbox/今日.note.yaml"]).toContain("recorded_at");
+  });
 });

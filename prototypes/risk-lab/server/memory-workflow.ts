@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
-import { dualViewChanges, readDualView } from "../src/core/dual-view";
+import { dualViewChanges, readDualView, recordDualView } from "../src/core/dual-view";
 import type { Snapshot } from "../src/core/contracts";
 import { parseSummary, serializeSummary, summaryPath, validateSummary } from "../src/core/summaries";
 import { ConflictError, FileStore, RejectedError } from "./store";
@@ -55,6 +55,15 @@ const inboxResultSchema = z
     destination: z.string().regex(/^raw\/(Projects|Areas)\/.+\.md$/),
     tags: z.array(z.string()).min(1).max(20),
     confidence: z.enum(["high", "needs-confirmation"]),
+    rationale: z.string().min(1).max(2000),
+  })
+  .strict();
+const dualViewResultSchema = z
+  .object({
+    runId: z.string().uuid(),
+    stem: z.string().regex(/^raw\/(Inbox|Projects|Areas)\/.+$/),
+    markdown: z.string().min(1).max(2_000_000),
+    opml: z.string().min(1).max(2_000_000),
     rationale: z.string().min(1).max(2000),
   })
   .strict();
@@ -129,7 +138,7 @@ export function planMemoryRun(snapshot: Snapshot, config: MemoryConfig) {
       });
   if (config.capabilities.dualView) {
     const stems = Object.keys(files)
-      .filter((file) => file.endsWith(".md"))
+      .filter((file) => file.endsWith(".md") && !file.startsWith("raw/Archive/"))
       .map((file) => file.slice(0, -3))
       .filter((stem) => Object.hasOwn(files, `${stem}.opml`));
     for (const stem of stems) {
@@ -295,6 +304,35 @@ export class MemoryWorkflowService {
         to: result.destination, tags: result.tags,
       });
       return { path: result.destination, revision: committed.revision };
+    });
+  }
+  applyDualView(input: unknown) {
+    return this.exclusive(async () => {
+      const result = dualViewResultSchema.parse(input);
+      const state = await this.read();
+      const run = state.runs.find((item) => item.id === result.runId);
+      if (!run) throw new RejectedError("记忆整理运行记录不存在");
+      if (!state.config.capabilities.dualView)
+        throw new RejectedError("未持续授权双视图整理");
+      if (!run.candidates.some((item) => item.capability === "dualView" && item.path === result.stem))
+        throw new RejectedError("同步结果不属于该次授权整理计划");
+      const snapshot = await this.store.snapshot();
+      if (snapshot.revision !== run.sourceRevision) throw new ConflictError(snapshot);
+      if (!(result.stem + ".md" in snapshot.files) || !(result.stem + ".opml" in snapshot.files))
+        throw new RejectedError("双视图来源已不存在");
+      const committed = await this.store.commit({
+        requestId: `memory-dual-${createHash("sha256").update(result.stem).digest("hex").slice(0, 24)}-${run.id}`,
+        expectedRevision: run.sourceRevision,
+        moveSequence: snapshot.moves?.length ?? 0,
+        files: {
+          ...snapshot.files,
+          [`${result.stem}.md`]: result.markdown,
+          [`${result.stem}.opml`]: result.opml,
+          [`${result.stem}.note.yaml`]: recordDualView(result.markdown, result.opml, new Date().toISOString()),
+        },
+        ...(snapshot.attachments ? { protocolVersion: 2 as const, attachments: snapshot.attachments } : {}),
+      });
+      return { stem: result.stem, revision: committed.revision };
     });
   }
   decideConfirmation(id: string, input: unknown) {
