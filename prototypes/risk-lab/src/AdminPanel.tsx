@@ -46,7 +46,7 @@ type MemoryState = {
     read: boolean;
   }[];
 };
-type KnowledgeMatch = { path: string; excerpt: string };
+type KnowledgeMatch = { path: string; excerpt: string; related: string[] };
 type KnowledgeSearch = {
   sourceRevision: string;
   result: { command: "search"; matches: KnowledgeMatch[] };
@@ -252,6 +252,9 @@ export default function AdminPanel({
                       <article className="review-card" key={match.path}>
                         <code>{match.path}</code>
                         <p>{match.excerpt}</p>
+                        {match.related.length > 0 && (
+                          <p>关联原文：{match.related.join("、")}</p>
+                        )}
                       </article>
                     ))}
                   </div>

@@ -78,7 +78,40 @@ describe("controlled CIL boundary", () => {
     );
     expect(result).toEqual({
       command: "search",
-      matches: [{ path: "raw/Areas/健康.md", excerpt: "# 睡眠 建议规律作息" }],
+      matches: [{ path: "raw/Areas/健康.md", excerpt: "# 睡眠 建议规律作息", related: [] }],
+    });
+  });
+
+  it("includes only portable inbound and outbound note neighbors with a search result", () => {
+    const result = executeCilRequest(
+      {
+        version: 1,
+        task: "问答",
+        command: "search",
+        paths: ["raw/Areas"],
+        query: "睡眠",
+        authorization: "read",
+      },
+      {
+        "raw/Areas/睡眠.md": "# 睡眠\n[[raw/Areas/作息]]",
+        "raw/Areas/作息.md": "# 作息\n规律睡眠",
+        "raw/Inbox/记录.md": "见 [[raw/Areas/睡眠]]",
+      },
+    );
+    expect(result).toEqual({
+      command: "search",
+      matches: [
+        {
+          path: "raw/Areas/睡眠.md",
+          excerpt: "# 睡眠 [[raw/Areas/作息]]",
+          related: ["raw/Areas/作息.md", "raw/Inbox/记录.md"],
+        },
+        {
+          path: "raw/Areas/作息.md",
+          excerpt: "# 作息 规律睡眠",
+          related: ["raw/Areas/睡眠.md"],
+        },
+      ],
     });
   });
   it("accepts an authorized, version-bound proposal without writing it", () => {

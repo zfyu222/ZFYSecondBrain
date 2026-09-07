@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { matchesNoteSearch } from "./search";
+import { linkedNeighbors } from "./knowledge-retrieval";
 
 const proposalSchema = z
   .object({
@@ -45,7 +46,10 @@ export function validateCilRequest(input: unknown): CilRequest {
 }
 
 export type CilResult =
-  | { command: "search"; matches: { path: string; excerpt: string }[] }
+  | {
+      command: "search";
+      matches: { path: string; excerpt: string; related: string[] }[];
+    }
   | { command: "read"; documents: { path: string; content: string }[] }
   | { command: "propose-change"; accepted: true; proposal: z.infer<typeof proposalSchema> };
 
@@ -89,6 +93,7 @@ export function executeCilRequest(
       .map(([path, content]) => ({
         path,
         excerpt: content.replace(/\s+/g, " ").slice(0, 280),
+        related: linkedNeighbors(path, files),
       })),
   };
 }

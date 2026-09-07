@@ -66,7 +66,7 @@ describe("AI manager review boundary", () => {
       sourceRevision: base.revision,
       result: {
         command: "search",
-        matches: [{ path: "raw/Inbox/a.md", excerpt: "# 原文" }],
+        matches: [{ path: "raw/Inbox/a.md", excerpt: "# 原文", related: [] }],
       },
     });
   });
