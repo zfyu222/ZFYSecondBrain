@@ -38,6 +38,13 @@ type MemoryState = {
     rationale: string;
     status: "pending" | "applied" | "rejected" | "stale";
   }[];
+  notifications: {
+    id: string;
+    level: "info" | "error";
+    message: string;
+    createdAt: string;
+    read: boolean;
+  }[];
 };
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
@@ -153,6 +160,17 @@ export default function AdminPanel({
       setError(String(reason));
     } finally {
       setBusy(false);
+    }
+  }
+  async function markMemoryNotificationRead(id: string) {
+    try {
+      await json(`/api/memory/notifications/${id}/read`, { method: "POST", body: JSON.stringify({}) });
+      setMemory((current) => current ? {
+        ...current,
+        notifications: current.notifications.map((item) => item.id === id ? { ...item, read: true } : item),
+      } : current);
+    } catch (reason) {
+      setError(String(reason));
     }
   }
 
@@ -303,6 +321,16 @@ export default function AdminPanel({
                         </div>
                       )}
                     </article>
+                  ))}
+                </section>
+              ) : null}
+              {memory?.notifications.some((item) => !item.read) ? (
+                <section className="memory-confirmations">
+                  <h3>每日整理通知</h3>
+                  {memory.notifications.filter((item) => !item.read).slice(0, 10).map((item) => (
+                    <button className={`memory-notification ${item.level}`} key={item.id} onClick={() => void markMemoryNotificationRead(item.id)}>
+                      {item.level === "error" ? "失败：" : "通知："}{item.message}
+                    </button>
                   ))}
                 </section>
               ) : null}

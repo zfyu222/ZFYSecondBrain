@@ -110,6 +110,24 @@ describe("daily memory workflow", () => {
     expect((await reopened.getState()).runs).toHaveLength(2);
   });
 
+  it("keeps result notifications across reopen and upgrades prior state files", async () => {
+    const { store, service } = await fixture();
+    await service.configure(config);
+    await service.runManual();
+    const state = await service.getState();
+    expect(state.notifications.at(-1)?.message).toContain("计划");
+    const notification = state.notifications.at(-1)!;
+    await service.markNotificationRead(notification.id);
+    expect((await service.getState()).notifications.at(-1)?.read).toBe(true);
+    const legacy = {
+      version: 1, config: state.config, runs: state.runs,
+    };
+    await fs.writeFile(path.join(store.root, "state", "memory-workflow.json"), JSON.stringify(legacy));
+    const reopened = await new MemoryWorkflowService(store).getState();
+    expect(reopened.confirmations).toEqual([]);
+    expect(reopened.notifications).toEqual([]);
+  });
+
   it("requires capability-specific authorization and never edits raw", async () => {
     const { store, service } = await fixture();
     await expect(

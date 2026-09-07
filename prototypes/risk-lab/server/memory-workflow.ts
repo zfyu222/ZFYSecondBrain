@@ -82,6 +82,17 @@ const confirmationSchema = z
   })
   .strict();
 export type MemoryConfirmation = z.infer<typeof confirmationSchema>;
+const notificationSchema = z
+  .object({
+    id: z.string().uuid(),
+    level: z.enum(["info", "error"]),
+    message: z.string().min(1).max(2000),
+    createdAt: z.string().datetime(),
+    read: z.boolean(),
+    runId: z.string().uuid().optional(),
+  })
+  .strict();
+export type MemoryNotification = z.infer<typeof notificationSchema>;
 
 const stateSchema = z
   .object({
@@ -89,7 +100,9 @@ const stateSchema = z
     config: memoryConfigSchema,
     lastScheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     runs: z.array(runSchema).max(100),
-    confirmations: z.array(confirmationSchema).max(100),
+    // Defaults retain existing v1 state files created before these queues.
+    confirmations: z.array(confirmationSchema).max(100).default([]),
+    notifications: z.array(notificationSchema).max(100).default([]),
   })
   .strict();
 type MemoryState = z.infer<typeof stateSchema>;
@@ -102,6 +115,7 @@ const defaultState: MemoryState = {
   },
   runs: [],
   confirmations: [],
+  notifications: [],
 };
 
 function localParts(now: Date) {
@@ -211,6 +225,18 @@ export class MemoryWorkflowService {
     }
     await fs.rename(temp, this.file);
   }
+  private notify(
+    state: MemoryState,
+    level: MemoryNotification["level"],
+    message: string,
+    runId?: string,
+  ): MemoryState {
+    const notification: MemoryNotification = {
+      id: randomUUID(), level, message, createdAt: new Date().toISOString(), read: false,
+      ...(runId ? { runId } : {}),
+    };
+    return { ...state, notifications: [...state.notifications, notification].slice(-100) };
+  }
   getState() {
     return this.exclusive(() => this.read());
   }
@@ -222,6 +248,24 @@ export class MemoryWorkflowService {
       const state = await this.read();
       await this.write({ ...state, config });
       return config;
+    });
+  }
+  markNotificationRead(id: string) {
+    return this.exclusive(async () => {
+      const state = await this.read();
+      if (!state.notifications.some((item) => item.id === id))
+        throw new RejectedError("整理通知不存在");
+      await this.write({
+        ...state,
+        notifications: state.notifications.map((item) => item.id === id ? { ...item, read: true } : item),
+      });
+    });
+  }
+  recordFailure(error: unknown) {
+    return this.exclusive(async () => {
+      const state = await this.read();
+      const message = error instanceof Error ? error.message : "每日整理发生未知错误";
+      await this.write(this.notify(state, "error", `每日整理未完成：${message}`));
     });
   }
   runManual() {
@@ -270,6 +314,7 @@ export class MemoryWorkflowService {
           ? { protocolVersion: 2 as const, attachments: snapshot.attachments }
           : {}),
       });
+      await this.write(this.notify(state, "info", `多级摘要已更新：${result.sourcePath}`, run.id));
       return { path: destination, revision: committed.revision };
     });
   }
@@ -295,7 +340,7 @@ export class MemoryWorkflowService {
           sourceRevision: run.sourceRevision, createdAt: new Date().toISOString(),
           status: "pending",
         };
-        await this.write({ ...state, confirmations: [...state.confirmations, confirmation].slice(-100) });
+        await this.write(this.notify({ ...state, confirmations: [...state.confirmations, confirmation].slice(-100) }, "info", `Inbox 分类等待确认：${result.sourcePath}`, run.id));
         return { confirmation, revision: snapshot.revision };
       }
       const committed = await this.store.classifyInbox({
@@ -303,6 +348,7 @@ export class MemoryWorkflowService {
         expectedRevision: run.sourceRevision, from: result.sourcePath,
         to: result.destination, tags: result.tags,
       });
+      await this.write(this.notify(state, "info", `Inbox 已归类：${result.sourcePath} → ${result.destination}`, run.id));
       return { path: result.destination, revision: committed.revision };
     });
   }
@@ -332,6 +378,7 @@ export class MemoryWorkflowService {
         },
         ...(snapshot.attachments ? { protocolVersion: 2 as const, attachments: snapshot.attachments } : {}),
       });
+      await this.write(this.notify(state, "info", `双视图已同步：${result.stem}`, run.id));
       return { stem: result.stem, revision: committed.revision };
     });
   }
@@ -344,13 +391,13 @@ export class MemoryWorkflowService {
       if (confirmation.status !== "pending") throw new RejectedError("该待确认分类已处理");
       if (decision.decision === "reject") {
         const confirmations = state.confirmations.map((item) => item.id === id ? { ...item, status: "rejected" as const } : item);
-        await this.write({ ...state, confirmations });
+        await this.write(this.notify({ ...state, confirmations }, "info", `已保留在 Inbox：${confirmation.sourcePath}`, confirmation.runId));
         return { confirmation: confirmations.find((item) => item.id === id)! };
       }
       const snapshot = await this.store.snapshot();
       if (snapshot.revision !== confirmation.sourceRevision) {
         const confirmations = state.confirmations.map((item) => item.id === id ? { ...item, status: "stale" as const } : item);
-        await this.write({ ...state, confirmations });
+        await this.write(this.notify({ ...state, confirmations }, "error", `待确认分类已过期：${confirmation.sourcePath}`, confirmation.runId));
         throw new ConflictError(snapshot);
       }
       const committed = await this.store.classifyInbox({
@@ -359,7 +406,7 @@ export class MemoryWorkflowService {
         to: confirmation.destination, tags: confirmation.tags,
       });
       const confirmations = state.confirmations.map((item) => item.id === id ? { ...item, status: "applied" as const } : item);
-      await this.write({ ...state, confirmations });
+      await this.write(this.notify({ ...state, confirmations }, "info", `已确认 Inbox 分类：${confirmation.sourcePath}`, confirmation.runId));
       return { confirmation: confirmations.find((item) => item.id === id)!, revision: committed.revision };
     });
   }
@@ -385,11 +432,11 @@ export class MemoryWorkflowService {
         ? "已按授权范围形成计划；未配置真实模型，未修改知识库"
         : "本次没有需要处理的已同步内容",
     };
-    await this.write({
+    await this.write(this.notify({
       ...state,
       ...(scheduledDate ? { lastScheduledDate: scheduledDate } : {}),
       runs: [...state.runs, run].slice(-100),
-    });
+    }, "info", run.message, run.id));
     return run;
   }
 }

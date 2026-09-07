@@ -13,7 +13,7 @@ export function registerVaultApi(app: FastifyInstance, store: FileStore) {
   const managerAnswers = new ManagerAnswerService();
   const memoryWorkflow = new MemoryWorkflowService(store);
   const memoryTimer = setInterval(
-    () => void memoryWorkflow.runDue().catch(() => {}),
+    () => void memoryWorkflow.runDue().catch((error) => void memoryWorkflow.recordFailure(error)),
     60_000,
   );
   memoryTimer.unref();
@@ -101,6 +101,10 @@ export function registerVaultApi(app: FastifyInstance, store: FileStore) {
   app.post<{ Params: { id: string } }>(
     "/api/memory/confirmations/:id/decision",
     (request) => memoryWorkflow.decideConfirmation(request.params.id, request.body),
+  );
+  app.post<{ Params: { id: string } }>(
+    "/api/memory/notifications/:id/read",
+    (request) => memoryWorkflow.markNotificationRead(request.params.id),
   );
   app.get("/api/health", () => ({
     prototype: true,

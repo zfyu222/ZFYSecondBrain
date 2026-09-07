@@ -865,6 +865,28 @@ h1 {
 .memory-run li + li {
   margin-top: 8px;
 }
+.memory-confirmations {
+  margin-top: 18px;
+}
+.memory-confirmations h3 {
+  font-size: 14px;
+}
+.memory-notification {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  text-align: left;
+  border: 1px solid #d9e4da;
+  border-radius: 7px;
+  background: #fff;
+  color: #355342;
+  font-size: 12px;
+}
+.memory-notification.error {
+  border-color: #ebc6bd;
+  color: #8a3427;
+}
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 185px 1fr;
