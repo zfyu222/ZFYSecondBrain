@@ -807,6 +807,21 @@ h1 {
 .admin-grid h2 {
   font-size: 16px;
 }
+
+.knowledge-search form {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.knowledge-search input {
+  min-width: 0;
+  flex: 1;
+}
+
+.knowledge-results .review-card {
+  margin-top: 0.5rem;
+}
 .review-card,
 .memory-run {
   margin-top: 10px;

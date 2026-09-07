@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 type Review = {
   id: string;
@@ -46,6 +46,11 @@ type MemoryState = {
     read: boolean;
   }[];
 };
+type KnowledgeMatch = { path: string; excerpt: string };
+type KnowledgeSearch = {
+  sourceRevision: string;
+  result: { command: "search"; matches: KnowledgeMatch[] };
+};
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -85,6 +90,9 @@ export default function AdminPanel({
   const [draft, setDraft] = useState<MemoryState["config"] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [knowledgeQuery, setKnowledgeQuery] = useState("");
+  const [knowledgeMatches, setKnowledgeMatches] = useState<KnowledgeMatch[] | null>(null);
+  const [knowledgeRevision, setKnowledgeRevision] = useState("");
 
   async function load() {
     if (offline) return;
@@ -173,6 +181,32 @@ export default function AdminPanel({
       setError(String(reason));
     }
   }
+  async function searchKnowledge(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = knowledgeQuery.trim();
+    if (!query) return;
+    setBusy(true);
+    try {
+      const response = await json<KnowledgeSearch>("/api/cil", {
+        method: "POST",
+        body: JSON.stringify({
+          version: 1,
+          task: "本地资料检索",
+          command: "search",
+          paths: ["raw/"],
+          query,
+          authorization: "read",
+        }),
+      });
+      setKnowledgeMatches(response.result.matches);
+      setKnowledgeRevision(response.sourceRevision);
+      setError("");
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const latest = memory?.runs.at(-1);
   return (
@@ -193,6 +227,36 @@ export default function AdminPanel({
           {error && <p className="notice error">{error}</p>}
           <div className="admin-grid">
             <div>
+              <section className="knowledge-search">
+                <h2>本地资料检索</h2>
+                <p>只检索当前已同步的非归档 Markdown；结果是原文证据，不由原型伪造 AI 回答。</p>
+                <form onSubmit={(event) => void searchKnowledge(event)}>
+                  <input
+                    aria-label="检索本地资料"
+                    value={knowledgeQuery}
+                    onChange={(event) => setKnowledgeQuery(event.target.value)}
+                    placeholder="输入关键词、路径或 #标签"
+                    maxLength={2000}
+                  />
+                  <button className="primary" disabled={busy || !knowledgeQuery.trim()}>
+                    检索
+                  </button>
+                </form>
+                {knowledgeMatches && (
+                  <div className="knowledge-results">
+                    <p>
+                      {knowledgeMatches.length ? `找到 ${knowledgeMatches.length} 条原文证据` : "未找到匹配的已同步资料"}
+                      {knowledgeRevision ? ` · 来源版本 ${knowledgeRevision.slice(0, 10)}` : ""}
+                    </p>
+                    {knowledgeMatches.map((match) => (
+                      <article className="review-card" key={match.path}>
+                        <code>{match.path}</code>
+                        <p>{match.excerpt}</p>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
               <h2>变更审阅</h2>
               {!reviews.length && <p>暂无管理员变更提议。</p>}
               {[...reviews].reverse().slice(0, 10).map((review) => (
