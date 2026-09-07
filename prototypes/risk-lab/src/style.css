@@ -775,6 +775,96 @@ h1 {
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+.admin-panel {
+  margin-top: 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8faf8;
+}
+.admin-toggle {
+  width: 100%;
+  padding: 14px 18px;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  font-weight: 650;
+}
+.admin-content {
+  padding: 0 18px 18px;
+}
+.admin-boundary,
+.admin-content p,
+.memory-run li {
+  color: #55665d;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.admin-grid h2 {
+  font-size: 16px;
+}
+.review-card,
+.memory-run {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  overflow-wrap: anywhere;
+}
+.review-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.review-heading span {
+  font-size: 11px;
+  color: #806b47;
+}
+.review-card code {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+}
+.review-diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.review-diff pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 10px;
+  background: #f7f7f4;
+  font-size: 11px;
+}
+.memory-settings {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  font-size: 12px;
+}
+.memory-settings label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.memory-run ul {
+  padding-left: 18px;
+}
+.memory-run li + li {
+  margin-top: 8px;
+}
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 185px 1fr;
@@ -793,6 +883,9 @@ h1 {
     display: none;
   }
   .markdown-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-grid {
     grid-template-columns: 1fr;
   }
   .markdown-grid section + section {
@@ -850,6 +943,9 @@ h1 {
     padding: 22px 14px;
   }
   .conflict-grid {
+    grid-template-columns: 1fr;
+  }
+  .review-diff {
     grid-template-columns: 1fr;
   }
   .map-canvas {

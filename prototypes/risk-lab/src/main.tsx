@@ -55,6 +55,7 @@ import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
 const MarkdownEditor = lazy(() => import("./MarkdownEditor"));
+const AdminPanel = lazy(() => import("./AdminPanel"));
 const MarkdownPreview = lazy(() =>
   import("./MarkdownPreview").then((module) => ({
     default: module.MarkdownPreview,
@@ -1433,6 +1434,9 @@ function App() {
             </button>
           </section>
         )}
+        <Suspense fallback={<p className="notice">正在加载管理员界面…</p>}>
+          <AdminPanel offline={offline || !navigator.onLine} onVaultChanged={() => void sync()} />
+        </Suspense>
         <footer className="lab-tools">
           <details>
             <summary>验证工具与原始文件</summary>
