@@ -1,0 +1,134 @@
+import Fastify, { type FastifyInstance } from "fastify";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { registerVaultApi } from "../server/api";
+import { FileStore } from "../server/store";
+
+const apps: FastifyInstance[] = [];
+const headers = {
+  host: "127.0.0.1:4173",
+  origin: "http://127.0.0.1:4173",
+  "content-type": "application/json",
+};
+
+async function fixture() {
+  const parent = path.resolve(".prototype-data/tests");
+  await fs.mkdir(parent, { recursive: true });
+  const store = new FileStore(await fs.mkdtemp(path.join(parent, "manager-")));
+  await store.init(false);
+  const base = await store.commit({
+    requestId: "manager-seed",
+    expectedRevision: (await store.snapshot()).revision,
+    files: { "raw/Inbox/a.md": "# 原文" },
+  });
+  const app = Fastify();
+  apps.push(app);
+  registerVaultApi(app, store);
+  return { app, store, base };
+}
+
+const proposal = (revision: string) => ({
+  version: 1,
+  task: "用户委托改写",
+  command: "propose-change",
+  paths: ["raw/Inbox/a.md"],
+  authorization: "propose-change",
+  proposal: {
+    path: "raw/Inbox/a.md",
+    baseRevision: revision,
+    content: "# 已审阅改写",
+    rationale: "用户明确要求改写",
+  },
+});
+
+afterEach(async () => {
+  await Promise.all(apps.splice(0).map((app) => app.close()));
+});
+
+describe("AI manager review boundary", () => {
+  it("persists a review and applies it through the versioned store", async () => {
+    const { app, store, base } = await fixture();
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/manager/reviews",
+      headers,
+      payload: proposal(base.revision),
+    });
+    expect(created.statusCode).toBe(200);
+    expect(created.json()).toMatchObject({
+      before: "# 原文",
+      after: "# 已审阅改写",
+      status: "pending",
+    });
+    const listed = await app.inject({ url: "/api/manager/reviews", headers });
+    expect(listed.json()).toHaveLength(1);
+    const applied = await app.inject({
+      method: "POST",
+      url: `/api/manager/reviews/${created.json().id}/decision`,
+      headers,
+      payload: { decision: "apply" },
+    });
+    expect(applied.json()).toMatchObject({ status: "applied" });
+    expect((await store.snapshot()).files["raw/Inbox/a.md"]).toBe(
+      "# 已审阅改写",
+    );
+  });
+
+  it("rejects stale proposals before review without writing", async () => {
+    const { app, store, base } = await fixture();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/manager/reviews",
+      headers,
+      payload: proposal("a".repeat(64)),
+    });
+    expect(response.statusCode).toBe(409);
+    expect((await store.snapshot()).revision).toBe(base.revision);
+  });
+
+  it("marks an accepted review stale when the source changes", async () => {
+    const { app, store, base } = await fixture();
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/manager/reviews",
+      headers,
+      payload: proposal(base.revision),
+    });
+    await store.commit({
+      requestId: "user-edit-after-review",
+      expectedRevision: base.revision,
+      files: { "raw/Inbox/a.md": "# 用户的新版本" },
+    });
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/manager/reviews/${created.json().id}/decision`,
+      headers,
+      payload: { decision: "apply" },
+    });
+    expect(response.statusCode).toBe(409);
+    expect((await store.snapshot()).files["raw/Inbox/a.md"]).toBe(
+      "# 用户的新版本",
+    );
+    const listed = await app.inject({ url: "/api/manager/reviews", headers });
+    expect(listed.json()[0].status).toBe("stale");
+  });
+
+  it("records rejection and never changes raw content", async () => {
+    const { app, store, base } = await fixture();
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/manager/reviews",
+      headers,
+      payload: proposal(base.revision),
+    });
+    const rejected = await app.inject({
+      method: "POST",
+      url: `/api/manager/reviews/${created.json().id}/decision`,
+      headers,
+      payload: { decision: "reject" },
+    });
+    expect(rejected.json().status).toBe("rejected");
+    expect((await store.snapshot()).revision).toBe(base.revision);
+  });
+});

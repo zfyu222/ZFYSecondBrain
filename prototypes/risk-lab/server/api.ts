@@ -2,9 +2,11 @@ import type { FastifyInstance } from "fastify";
 import { ZodError } from "zod";
 import { FileStore, ConflictError, RejectedError } from "./store";
 import { changeSchema, moveSchema } from "../src/core/contracts";
+import { ManagerReviewService } from "./manager-review";
 
 /** Local prototype routes; tests inject requests without opening a network listener. */
 export function registerVaultApi(app: FastifyInstance, store: FileStore) {
+  const managerReviews = new ManagerReviewService(store);
   app.addHook("onRequest", async (request, reply) => {
     if (
       !["127.0.0.1:4173", "localhost:4173"].includes(request.headers.host ?? "")
@@ -46,6 +48,14 @@ export function registerVaultApi(app: FastifyInstance, store: FileStore) {
   );
   app.post("/api/move", (request) =>
     store.move(moveSchema.parse(request.body)),
+  );
+  app.get("/api/manager/reviews", () => managerReviews.list());
+  app.post("/api/manager/reviews", (request) =>
+    managerReviews.create(request.body),
+  );
+  app.post<{ Params: { id: string } }>(
+    "/api/manager/reviews/:id/decision",
+    (request) => managerReviews.decide(request.params.id, request.body),
   );
   app.get("/api/health", () => ({
     prototype: true,

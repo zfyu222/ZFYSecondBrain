@@ -111,6 +111,9 @@ relations:
 | `GET /api/snapshot` | `{ revision, files, moves, protocolVersion?, attachments? }`；有附件时要求请求头 `X-Vault-Protocol: 2` |
 | `POST /api/commit`  | `{ protocolVersion: 2, requestId, expectedRevision, moveSequence, files, attachments }` → 新快照       |
 | `POST /api/move`    | `{ protocolVersion: 2, requestId, expectedRevision, from, to }` → 新快照                               |
+| `GET /api/manager/reviews` | 列出知识库服务持久化的管理员变更审阅记录 |
+| `POST /api/manager/reviews` | 接收 CIL v1 的已授权 `propose-change`，按当前快照验版后生成审阅记录；不写 `raw` |
+| `POST /api/manager/reviews/:id/decision` | `{ decision: "apply"|"reject" }`；应用前再次验版，接受后经普通提交事务写入 |
 
 `revision` 是排序后文本、附件及移动记录的 SHA-256；无附件时保持旧散列兼容。提交是**完整内容快照**，缺失路径表示删除，不能把它误当局部 patch。正文单文件 200 万 JS 字符、总计 500 万字符；附件另有上述限制，HTTP body 合计上限 1200 万字节（JSON 转义/编码后仍可能先到达传输上限）。正式增量协议待实现。
 
@@ -120,6 +123,8 @@ relations:
 - 输入/schema 或移动前置检查拒绝：400；Host/Origin 拒绝：403；正文超限：413；不支持的请求媒体类型：415；未声明附件读取能力：426。
 - 其他错误：500，结果可能尚未确认，保留请求重试。
 - requestId 至少 8 字符；同一请求重试返回原结果，不能复用到不同内容。客户端先把请求和 payload 存到 IndexedDB，再发送；移动同样如此。
+- CIL 只接受固定 JSON schema 的 `search`、`read` 和 `propose-change`，不拼接或执行模型提供的 shell 文本，也不使用 MCP。变更提议必须携带任务范围、明确写入授权、目标 Markdown 全文、理由和 64 位共同快照版本；越权路径、只读任务写入、无变化提议和旧版本均拒绝。通过初次验版只会在 `state/manager-reviews.json` 生成 `pending` 审阅，不直接写原文。
+- 审阅记录保存提议前后全文、任务、理由、版本和状态。用户拒绝只记状态；用户接受时再次比较**整个知识库快照版本**，任一同步/外部变化都会将记录标为 `stale` 并返回 409，绝不覆盖新版本。版本仍一致时，把结果作为普通 `FileStore` 完整事务提交，因此沿用路径校验、附件保留、幂等回执和恢复日志。当前是严格但偏保守的整库版本绑定，尚未缩小为安全的逐文档依赖版本。
 - 本机另一标签页写入时按本地版本拒绝旧写入，不以最后写入覆盖。确认操作从数据库重新读取当前冲突计划，不信任已过时的界面副本。
 - **Markdown 按冲突片段二选一**：有共同基线且双方文件都存在时，按保留换行的行序列做三方比较；自动保留双方无重叠修改，只选择发生冲突的片段。同一文件可有多个独立选择，空片段表示删除这些行，不是删除整个文件。没有共同基线的同名新建、删除对编辑仍按整文件选择。同一行内的不同词修改不会强行按字符合并。
 - **OPML 与同名关系 YAML 是一个一致性组**：整组未变的一方让位于已改的一方；不同组件的单边修改只有在合成后通过端点和 schema 校验时才自动保留。否则只提供一个整组二选一，不能将两端文件分别选取。删除组也不会留下孤立关系文件。
