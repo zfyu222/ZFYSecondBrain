@@ -89,6 +89,9 @@ export function registerVaultApi(app: FastifyInstance, store: FileStore) {
     memoryWorkflow.configure(request.body),
   );
   app.post("/api/memory/run", () => memoryWorkflow.runManual());
+  app.post("/api/memory/summaries", (request) =>
+    memoryWorkflow.applySummary(request.body),
+  );
   app.get("/api/health", () => ({
     prototype: true,
     protocolVersion: 2,

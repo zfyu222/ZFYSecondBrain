@@ -3,11 +3,13 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { recordDualView } from "../src/core/dual-view";
 import { FileStore } from "../server/store";
+import { ConflictError } from "../server/store";
 import {
   MemoryWorkflowService,
   planMemoryRun,
   type MemoryConfig,
 } from "../server/memory-workflow";
+import { summaryPath } from "../src/core/summaries";
 
 const config: MemoryConfig = {
   enabled: true,
@@ -20,7 +22,7 @@ async function fixture() {
   await fs.mkdir(parent, { recursive: true });
   const store = new FileStore(await fs.mkdtemp(path.join(parent, "memory-")));
   await store.init(false);
-  const md = "# 今日记录\n\n内容";
+  const md = "# 今日记录\n\n" + "内容".repeat(500);
   const opml = '<?xml version="1.0"?><opml version="2.0"><head><title>今日记录</title></head><body><outline text="今日记录"/></body></opml>';
   await store.commit({
     requestId: "memory-seed",
@@ -37,6 +39,42 @@ async function fixture() {
 }
 
 describe("daily memory workflow", () => {
+  it("writes a planned AI summary as a version-bound derived document", async () => {
+    const { store, service } = await fixture();
+    await service.configure(config);
+    const run = await service.runManual();
+    const response = await service.applySummary({
+      runId: run.id,
+      sourcePath: "raw/Inbox/今日.md",
+      summary: {
+        version: 1,
+        source_path: "raw/Inbox/今日.md",
+        source_revision: run.sourceRevision,
+        generated_at: "2026-09-07T03:00:00.000Z",
+        layers: [
+          { text: "记", source: "ai" },
+          { text: "今日记录需要整理每天", source: "ai" },
+          { text: "内容".repeat(50), source: "ai" },
+        ],
+      },
+    });
+    expect(response.path).toBe(summaryPath("raw/Inbox/今日.md"));
+    expect((await store.snapshot()).files[response.path]).toContain("source_revision");
+  });
+
+  it("does not overwrite a confirmed summary or a changed source", async () => {
+    const { store, service } = await fixture();
+    await service.configure(config);
+    const run = await service.runManual();
+    await store.commit({
+      requestId: "summary-source-edited",
+      expectedRevision: run.sourceRevision,
+      files: { ...(await store.snapshot()).files, "raw/Inbox/今日.md": "# 更新" },
+    });
+    await expect(
+      service.applySummary({ runId: run.id, sourcePath: "raw/Inbox/今日.md", summary: {} }),
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
   it("plans only enabled first-release capabilities over server snapshots", async () => {
     const { store } = await fixture();
     const candidates = planMemoryRun(await store.snapshot(), config);

@@ -6,7 +6,7 @@
 
 - Windows、Node.js 24.12.0、pnpm 11.19.0；React 19、Vite 7、Vitest 3，精确版本见 `pnpm-lock.yaml`。
 - 测试服务只监听 `127.0.0.1:4173`，独立 `.prototype-data` 数据目录，无 AI、无 Linux 服务器挂载、无真实个人笔记。
-- `pnpm test`：36 个测试文件、408 项测试通过；完整分项见下表。
+- `pnpm test`：37 个测试文件、414 项测试通过；完整分项见下表。
 - `pnpm build`：TypeScript 检查和 Vite 生产构建通过。
 - `pnpm audit --prod`：此次查询未发现已知漏洞，不代表无漏洞或完整安全审计。
 - 当前入口 JS 约 683 KB（gzip 215 KB），管理员面板约 4 KB，Markdown 编辑器约 620 KB、导图编辑器约 189 KB，阅读预览继续独立分包；此前单入口约 1.58 MB。完整离线清单 69 项，包含公式字体。初始依赖图缩小不等于真实加载时延/移动端性能验收，完整离线缓存仍下载全部分包与字体。依赖注释仍有两项无效 PURE 注解警告。
@@ -33,8 +33,9 @@
 | `tests/search.test.ts`             |    2 | 大小写无关的路径/正文关键词；多个 OFM 标签与文本条件组合；Archive 默认排除与显式包含                                                                                                                                                                                               |
 | `tests/cil.test.ts`                |    6 | 固定 JSON 命令、只读范围搜索/读取、shell 式命令拒绝、明确授权和路径范围绑定、版本化变更提议只返回建议而不写入；Archive 显式和父范围穿透均拒绝                                                                                                                                          |
 | `tests/cil-client.test.ts`         |    4 | CLI 客户端只调用固定本机端点；空白、坏 JSON 与 UTF-8 字节超限在联网前拒绝；服务端 JSON 错误保持失败语义；非 JSON 网关响应不伪装成成功                                                                                                                                                 |
+| `tests/summaries.test.ts`          |    4 | raw 到可读 derived 摘要路径映射、YAML 来源版本/来源状态往返、顶层/逐层/原文 1/10 上限及不支持 Archive、每层来源状态强制校验                                                                                                                                                             |
 | `tests/manager-review.test.ts`     |    8 | 管理员提议持久审阅、接受后走同一版本事务、初次旧版本拒绝、审阅后来源变化标记过期且不覆盖、拒绝不改原文；HTTP CIL 只读结果绑定来源版本，CIL 变更只生成待审记录；回答引用必须来自实际 read 且来源未变，未读路径拒绝                                                                 |
-| `tests/memory-workflow.test.ts`    |    4 | 三项首版能力逐项规划、Archive 排除、双视图共同版本检查；服务器本地时间到点运行且每日防重；配置与运行重启持久化、手动重跑；未授权拒绝且无模型计划不修改 raw                                                                                                                           |
+| `tests/memory-workflow.test.ts`    |    6 | 三项首版能力逐项规划、Archive 排除、双视图共同版本检查；服务器本地时间到点运行且每日防重；配置与运行重启持久化、手动重跑；版本绑定摘要写入 derived；来源变化、未授权拒绝且无模型计划不修改 raw                                                                                          |
 | `tests/templates.test.ts`          |    1 | 模板固定保存于 Areas 的可读 raw 子目录；普通 Areas 文档不被误判为模板                                                                                                                                                                                                            |
 | `tests/folders.test.ts`            |    3 | 任意层级目录树保留和稳定排序；软链接作为不复制原文的虚拟目录入口参与空间筛选，且即使没有真实文件也会显示在目录树中                                                                                                                                                                  |
 | `tests/document-title.test.ts`     |    3 | Markdown 显式标题优先；仅含 OPML 的导图笔记使用其 OPML 标题；缺失标题时保留可读文件名                                                                                                                                                                                              |

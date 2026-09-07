@@ -1,10 +1,11 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dualViewChanges, readDualView } from "../src/core/dual-view";
 import type { Snapshot } from "../src/core/contracts";
-import { FileStore, RejectedError } from "./store";
+import { parseSummary, serializeSummary, summaryPath, validateSummary } from "../src/core/summaries";
+import { ConflictError, FileStore, RejectedError } from "./store";
 
 const capabilitiesSchema = z
   .object({ summaries: z.boolean(), inbox: z.boolean(), dualView: z.boolean() })
@@ -38,6 +39,14 @@ const runSchema = z
   })
   .strict();
 export type MemoryRun = z.infer<typeof runSchema>;
+
+const summaryResultSchema = z
+  .object({
+    runId: z.string().uuid(),
+    sourcePath: z.string().startsWith("raw/").endsWith(".md"),
+    summary: z.unknown(),
+  })
+  .strict();
 
 const stateSchema = z
   .object({
@@ -192,6 +201,39 @@ export class MemoryWorkflowService {
       )
         return undefined;
       return this.run("scheduled", date, state);
+    });
+  }
+  applySummary(input: unknown) {
+    return this.exclusive(async () => {
+      const result = summaryResultSchema.parse(input);
+      const state = await this.read();
+      const run = state.runs.find((item) => item.id === result.runId);
+      if (!run) throw new RejectedError("记忆整理运行记录不存在");
+      if (!state.config.capabilities.summaries)
+        throw new RejectedError("未持续授权多级摘要整理");
+      if (!run.candidates.some((item) => item.capability === "summaries" && item.path === result.sourcePath))
+        throw new RejectedError("摘要结果不属于该次授权整理计划");
+      const snapshot = await this.store.snapshot();
+      if (snapshot.revision !== run.sourceRevision) throw new ConflictError(snapshot);
+      const source = snapshot.files[result.sourcePath];
+      if (source === undefined) throw new RejectedError("摘要来源文档已不存在");
+      const summary = validateSummary(result.summary, source);
+      if (summary.source_path !== result.sourcePath || summary.source_revision !== run.sourceRevision)
+        throw new RejectedError("摘要来源路径或版本与整理计划不一致");
+      const destination = summaryPath(result.sourcePath);
+      const existing = snapshot.files[destination];
+      if (existing && parseSummary(existing).layers.some((layer) => layer.source === "user-confirmed"))
+        throw new RejectedError("已有用户确认的摘要，不能由自动整理覆盖");
+      const committed = await this.store.commit({
+        requestId: `memory-summary-${createHash("sha256").update(result.sourcePath).digest("hex").slice(0, 24)}-${result.runId}`,
+        expectedRevision: run.sourceRevision,
+        moveSequence: snapshot.moves?.length ?? 0,
+        files: { ...snapshot.files, [destination]: serializeSummary(summary) },
+        ...(snapshot.attachments
+          ? { protocolVersion: 2 as const, attachments: snapshot.attachments }
+          : {}),
+      });
+      return { path: destination, revision: committed.revision };
     });
   }
   private async run(
