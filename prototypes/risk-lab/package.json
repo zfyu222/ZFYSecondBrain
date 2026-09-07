@@ -8,6 +8,7 @@
     "start": "tsx server/main.ts --production",
     "build": "tsc --noEmit && vite build",
     "check:build": "tsx tests/check-build.ts",
+    "cil": "tsx server/cil-cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

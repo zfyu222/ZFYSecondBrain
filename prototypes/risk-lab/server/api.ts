@@ -4,6 +4,7 @@ import { FileStore, ConflictError, RejectedError } from "./store";
 import { changeSchema, moveSchema } from "../src/core/contracts";
 import { ManagerReviewService } from "./manager-review";
 import { MemoryWorkflowService } from "./memory-workflow";
+import { executeCilRequest, validateCilRequest } from "../src/core/cil";
 
 /** Local prototype routes; tests inject requests without opening a network listener. */
 export function registerVaultApi(app: FastifyInstance, store: FileStore) {
@@ -61,6 +62,16 @@ export function registerVaultApi(app: FastifyInstance, store: FileStore) {
   app.post("/api/manager/reviews", (request) =>
     managerReviews.create(request.body),
   );
+  app.post("/api/cil", async (request) => {
+    const command = validateCilRequest(request.body);
+    if (command.command === "propose-change")
+      return { result: await managerReviews.create(command) };
+    const snapshot = await store.snapshot();
+    return {
+      sourceRevision: snapshot.revision,
+      result: executeCilRequest(command, snapshot.files),
+    };
+  });
   app.post<{ Params: { id: string } }>(
     "/api/manager/reviews/:id/decision",
     (request) => managerReviews.decide(request.params.id, request.body),

@@ -113,6 +113,7 @@ relations:
 | `POST /api/move`    | `{ protocolVersion: 2, requestId, expectedRevision, from, to }` → 新快照                               |
 | `GET /api/manager/reviews` | 列出知识库服务持久化的管理员变更审阅记录 |
 | `POST /api/manager/reviews` | 接收 CIL v1 的已授权 `propose-change`，按当前快照验版后生成审阅记录；不写 `raw` |
+| `POST /api/cil` | CIL 统一入口；只读结果附来源快照版本，变更命令只生成 `pending` 审阅 |
 | `POST /api/manager/reviews/:id/decision` | `{ decision: "apply"|"reject" }`；应用前再次验版，接受后经普通提交事务写入 |
 | `GET /api/memory` | 读取记忆整理配置、服务器本地计划日期和最近 100 次运行记录 |
 | `PUT /api/memory/config` | 配置 `enabled`、`HH:mm` 本地时间，以及摘要/Inbox/双视图三项独立持续授权 |
@@ -127,6 +128,7 @@ relations:
 - 其他错误：500，结果可能尚未确认，保留请求重试。
 - requestId 至少 8 字符；同一请求重试返回原结果，不能复用到不同内容。客户端先把请求和 payload 存到 IndexedDB，再发送；移动同样如此。
 - CIL 只接受固定 JSON schema 的 `search`、`read` 和 `propose-change`，不拼接或执行模型提供的 shell 文本，也不使用 MCP。变更提议必须携带任务范围、明确写入授权、目标 Markdown 全文、理由和 64 位共同快照版本；越权路径、只读任务写入、无变化提议和旧版本均拒绝。通过初次验版只会在 `state/manager-reviews.json` 生成 `pending` 审阅，不直接写原文。
+- `pnpm --filter @zfy/risk-lab cil` 从标准输入读取单个 JSON（上限 3 MB），固定调用 `http://127.0.0.1:4173/api/cil`，成功和失败都输出 JSON。CLI 不接受任意 URL、文件路径或 shell 命令，不读取知识库目录；服务端再执行相同 schema、范围和授权检查。只读响应包含本次搜索/读取使用的 `sourceRevision`，供后续答案来源和版本审计；`propose-change` 响应直接返回持久审阅记录而不是写入成功假象。
 - 审阅记录保存提议前后全文、任务、理由、版本和状态。用户拒绝只记状态；用户接受时再次比较**整个知识库快照版本**，任一同步/外部变化都会将记录标为 `stale` 并返回 409，绝不覆盖新版本。版本仍一致时，把结果作为普通 `FileStore` 完整事务提交，因此沿用路径校验、附件保留、幂等回执和恢复日志。当前是严格但偏保守的整库版本绑定，尚未缩小为安全的逐文档依赖版本。
 - 记忆整理调度状态以 v1 JSON 保存于 `state/memory-workflow.json`。默认整体关闭且三项授权均关闭；启用时必须至少选择摘要、Inbox 或双视图之一。服务按自己的本地时钟比较配置的 `HH:mm`，在对应分钟内的首次检查创建当天唯一的 scheduled 运行；重启后仍由 `lastScheduledDate` 防重，错过该分钟不会突然补跑。手动运行可以另行创建记录，但不能绕过整体启用与逐项授权。
 - 当前无模型版本只规划服务端快照中已同步的候选：摘要排除 Archive；Inbox 只列 Inbox Markdown；双视图使用 `.note.yaml` 共同版本记录判断变更或记录损坏。每次运行保存 `sourceRevision`、触发方式、候选和状态；有候选时明确标为 `awaiting-manager`，不写 `raw` 或伪造 AI 结果。后续真实管理员必须沿用该来源版本、CIL 和审阅/版本检查边界。Web 原型可查看审阅前后全文并接受/拒绝，也可配置三项授权、服务器时间、手动运行及查看最近候选；尚未接入管理员模型、摘要文件生成、自动移动和服务端通知转发。

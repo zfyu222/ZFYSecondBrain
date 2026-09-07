@@ -47,6 +47,42 @@ afterEach(async () => {
 });
 
 describe("AI manager review boundary", () => {
+  it("executes scoped CIL reads through HTTP with a source revision", async () => {
+    const { app, base } = await fixture();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/cil",
+      headers,
+      payload: {
+        version: 1,
+        task: "个人知识问答",
+        command: "search",
+        paths: ["raw/Inbox"],
+        query: "原文",
+        authorization: "read",
+      },
+    });
+    expect(response.json()).toEqual({
+      sourceRevision: base.revision,
+      result: {
+        command: "search",
+        matches: [{ path: "raw/Inbox/a.md", excerpt: "# 原文" }],
+      },
+    });
+  });
+
+  it("turns a CIL change command into a pending review instead of a write", async () => {
+    const { app, store, base } = await fixture();
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/cil",
+      headers,
+      payload: proposal(base.revision),
+    });
+    expect(response.json().result).toMatchObject({ status: "pending" });
+    expect((await store.snapshot()).revision).toBe(base.revision);
+  });
+
   it("persists a review and applies it through the versioned store", async () => {
     const { app, store, base } = await fixture();
     const created = await app.inject({
