@@ -5,11 +5,13 @@ import { FileStore } from "./store";
 import { registerVaultApi } from "./api";
 import { startLocalServer } from "./startup";
 import { registerStaticFiles } from "./static-files";
+import { accessControlFromEnvironment } from "./access-control";
 
 const appRoot = fileURLToPath(new URL("..", import.meta.url));
 const store = new FileStore(path.join(appRoot, ".prototype-data", "server"));
 const app = Fastify({ logger: false, bodyLimit: 12_000_000 });
-registerVaultApi(app, store);
+const access = accessControlFromEnvironment();
+registerVaultApi(app, store, undefined, access);
 if (process.argv.includes("--production")) {
   registerStaticFiles(app, path.join(appRoot, "dist"));
 } else {
@@ -25,9 +27,9 @@ if (process.argv.includes("--production")) {
   });
   app.addHook("onClose", () => vite.close());
 }
-await startLocalServer(app, () => store.init());
+await startLocalServer(app, () => store.init(), 4173, access.listenHost);
 console.log(
-  "Local: http://127.0.0.1:4173/ — isolated risk prototype, not a production server",
+  `${access.listenHost === "127.0.0.1" ? "Local: http://127.0.0.1:4173" : "Public origin: " + access.origins[0]} — isolated risk prototype, not a production server`,
 );
 for (const signal of ["SIGINT", "SIGTERM"] as const)
   process.on(signal, () => {

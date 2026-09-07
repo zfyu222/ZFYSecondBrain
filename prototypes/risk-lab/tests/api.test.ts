@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { registerVaultApi } from "../server/api";
 import { FileStore } from "../server/store";
+import { accessControlFromEnvironment, type AccessControl } from "../server/access-control";
 import { encodeAttachment } from "../src/core/attachments";
 const apps: FastifyInstance[] = [];
 const headers = {
@@ -13,7 +14,7 @@ const headers = {
 };
 const note = "raw/Inbox/a.md",
   asset = "raw/Inbox/a.assets/p.png";
-async function fixture(bodyLimit = 12_000_000) {
+async function fixture(bodyLimit = 12_000_000, access?: AccessControl) {
   const parent = path.resolve(".prototype-data/tests");
   await fs.mkdir(parent, { recursive: true });
   const store = new FileStore(await fs.mkdtemp(path.join(parent, "api-")));
@@ -27,7 +28,7 @@ async function fixture(bodyLimit = 12_000_000) {
   });
   const app = Fastify({ bodyLimit });
   apps.push(app);
-  registerVaultApi(app, store);
+  registerVaultApi(app, store, undefined, access);
   return { app, store, base };
 }
 afterEach(async () => {
@@ -105,6 +106,24 @@ describe("local protocol boundary", () => {
       expect(response.statusCode).toBe(403);
       expect(response.json().files).toBeUndefined();
     }
+  });
+  it("uses the explicit public origin without widening access to another origin", async () => {
+    const access = accessControlFromEnvironment({
+      ZFY_PUBLIC_ORIGIN: "https://notes.example.test",
+    });
+    const { app } = await fixture(12_000_000, access);
+    const publicHeaders = {
+      host: "notes.example.test",
+      origin: "https://notes.example.test",
+      "x-vault-protocol": "2",
+    };
+    expect((await app.inject({ url: "/api/snapshot", headers: publicHeaders })).statusCode).toBe(200);
+    expect(
+      (await app.inject({
+        url: "/api/snapshot",
+        headers: { ...publicHeaders, origin: "https://other.example.test" },
+      })).statusCode,
+    ).toBe(403);
   });
   it("retains body-limit and malformed-JSON status codes without a partial commit", async () => {
     const { app, store, base } = await fixture(128);

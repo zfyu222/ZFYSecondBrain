@@ -5,6 +5,7 @@ export async function startLocalServer(
   app: FastifyInstance,
   initialize: () => Promise<unknown>,
   port = 4173,
+  host: "127.0.0.1" | "0.0.0.0" = "127.0.0.1",
 ) {
   let ready = false;
   app.addHook("onRequest", async (_request, reply) => {
@@ -16,7 +17,7 @@ export async function startLocalServer(
         .send({ error: "知识库正在初始化，尚未开放读写" });
   });
   try {
-    const address = await app.listen({ host: "127.0.0.1", port });
+    const address = await app.listen({ host, port });
     await initialize();
     ready = true;
     return address;

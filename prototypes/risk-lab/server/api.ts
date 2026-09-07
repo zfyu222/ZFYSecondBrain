@@ -7,12 +7,20 @@ import { MemoryWorkflowService } from "./memory-workflow";
 import { executeCilRequest, validateCilRequest } from "../src/core/cil";
 import { ManagerAnswerService } from "./manager-answer";
 import { SingleAccountAuth } from "./auth";
+import type { AccessControl } from "./access-control";
+
+const localAccess: AccessControl = {
+  hosts: ["127.0.0.1:4173", "localhost:4173"],
+  origins: ["http://127.0.0.1:4173", "http://localhost:4173"],
+  listenHost: "127.0.0.1",
+};
 
 /** Local prototype routes; tests inject requests without opening a network listener. */
 export function registerVaultApi(
   app: FastifyInstance,
   store: FileStore,
   auth = new SingleAccountAuth(store.root),
+  access: AccessControl = localAccess,
 ) {
   const managerReviews = new ManagerReviewService(store);
   const managerAnswers = new ManagerAnswerService();
@@ -25,13 +33,13 @@ export function registerVaultApi(
   app.addHook("onClose", () => clearInterval(memoryTimer));
   app.addHook("onRequest", async (request, reply) => {
     if (
-      !["127.0.0.1:4173", "localhost:4173"].includes(request.headers.host ?? "")
+      !access.hosts.includes(request.headers.host ?? "")
     )
       return reply.code(403).send({ error: "仅允许本机原型访问" });
     const origin = request.headers.origin;
     if (
       origin &&
-      !["http://127.0.0.1:4173", "http://localhost:4173"].includes(origin)
+      !access.origins.includes(origin)
     )
       return reply.code(403).send({ error: "拒绝跨站请求" });
     if (
