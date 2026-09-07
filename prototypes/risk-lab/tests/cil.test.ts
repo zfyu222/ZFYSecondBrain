@@ -34,6 +34,32 @@ describe("controlled CIL boundary", () => {
       }),
     ).toThrow("未经明确授权");
   });
+  it("does not let the manager expand ordinary reads into Archive", () => {
+    expect(() =>
+      validateCilRequest({
+        version: 1,
+        task: "问答",
+        command: "read",
+        paths: ["raw/Archive"],
+        authorization: "read",
+      }),
+    ).toThrow("归档资料");
+    expect(
+      executeCilRequest(
+        {
+          version: 1,
+          task: "问答",
+          command: "read",
+          paths: ["raw/"],
+          authorization: "read",
+        },
+        { "raw/Archive/旧.md": "旧资料", "raw/Areas/新.md": "当前资料" },
+      ),
+    ).toEqual({
+      command: "read",
+      documents: [{ path: "raw/Areas/新.md", content: "当前资料" }],
+    });
+  });
   it("searches only the explicitly scoped raw snapshot and excludes Archive", () => {
     const result = executeCilRequest(
       {

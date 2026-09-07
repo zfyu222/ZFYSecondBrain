@@ -28,6 +28,8 @@ export function validateCilRequest(input: unknown): CilRequest {
   const request = cilRequestSchema.parse(input);
   if (request.command === "search" && !request.query?.trim())
     throw new Error("搜索命令需要查询内容");
+  if (request.paths.some((scope) => scope === "raw/Archive" || scope.startsWith("raw/Archive/")))
+    throw new Error("归档资料需要独立的用户扩展授权，当前原型 CIL 不提供该范围");
   if (
     request.command === "propose-change" &&
     request.authorization !== "propose-change"
@@ -67,7 +69,9 @@ export function executeCilRequest(
     };
   const candidates = Object.entries(files).filter(
     ([path]) =>
-      path.endsWith(".md") && request.paths.some((scope) => insideScope(path, scope)),
+      path.endsWith(".md") &&
+      !path.startsWith("raw/Archive/") &&
+      request.paths.some((scope) => insideScope(path, scope)),
   );
   if (request.command === "read")
     return {

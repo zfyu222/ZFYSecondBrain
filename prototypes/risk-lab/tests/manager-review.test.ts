@@ -83,6 +83,77 @@ describe("AI manager review boundary", () => {
     expect((await store.snapshot()).revision).toBe(base.revision);
   });
 
+  it("accepts an answer only when its citations came from a current CIL read", async () => {
+    const { app, store } = await fixture();
+    const read = await app.inject({
+      method: "POST",
+      url: "/api/cil",
+      headers,
+      payload: {
+        version: 1,
+        task: "个人知识问答",
+        command: "read",
+        paths: ["raw/Inbox/a.md"],
+        authorization: "read",
+      },
+    });
+    const answer = await app.inject({
+      method: "POST",
+      url: "/api/manager/answers",
+      headers,
+      payload: {
+        evidenceId: read.json().evidenceId,
+        answer: "笔记的标题是原文。",
+        citations: [{ path: "raw/Inbox/a.md", quote: "# 原文" }],
+      },
+    });
+    expect(answer.json()).toMatchObject({ task: "个人知识问答" });
+    await store.commit({
+      requestId: "answer-source-changed",
+      expectedRevision: (await store.snapshot()).revision,
+      files: { "raw/Inbox/a.md": "# 新原文" },
+    });
+    const stale = await app.inject({
+      method: "POST",
+      url: "/api/manager/answers",
+      headers,
+      payload: {
+        evidenceId: read.json().evidenceId,
+        answer: "旧答案",
+        citations: [{ path: "raw/Inbox/a.md", quote: "# 原文" }],
+      },
+    });
+    expect(stale.statusCode).toBe(409);
+  });
+
+  it("rejects citations that were not returned by CIL read", async () => {
+    const { app } = await fixture();
+    const read = await app.inject({
+      method: "POST",
+      url: "/api/cil",
+      headers,
+      payload: {
+        version: 1,
+        task: "个人知识问答",
+        command: "read",
+        paths: ["raw/Inbox/a.md"],
+        authorization: "read",
+      },
+    });
+    const answer = await app.inject({
+      method: "POST",
+      url: "/api/manager/answers",
+      headers,
+      payload: {
+        evidenceId: read.json().evidenceId,
+        answer: "猜测",
+        citations: [{ path: "raw/Areas/不存在.md", quote: "不存在" }],
+      },
+    });
+    expect(answer.statusCode).toBe(400);
+    expect(answer.json().error).toContain("未读取");
+  });
+
   it("persists a review and applies it through the versioned store", async () => {
     const { app, store, base } = await fixture();
     const created = await app.inject({

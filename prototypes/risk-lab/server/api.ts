@@ -5,10 +5,12 @@ import { changeSchema, moveSchema } from "../src/core/contracts";
 import { ManagerReviewService } from "./manager-review";
 import { MemoryWorkflowService } from "./memory-workflow";
 import { executeCilRequest, validateCilRequest } from "../src/core/cil";
+import { ManagerAnswerService } from "./manager-answer";
 
 /** Local prototype routes; tests inject requests without opening a network listener. */
 export function registerVaultApi(app: FastifyInstance, store: FileStore) {
   const managerReviews = new ManagerReviewService(store);
+  const managerAnswers = new ManagerAnswerService();
   const memoryWorkflow = new MemoryWorkflowService(store);
   const memoryTimer = setInterval(
     () => void memoryWorkflow.runDue().catch(() => {}),
@@ -67,11 +69,17 @@ export function registerVaultApi(app: FastifyInstance, store: FileStore) {
     if (command.command === "propose-change")
       return { result: await managerReviews.create(command) };
     const snapshot = await store.snapshot();
+    const result = executeCilRequest(command, snapshot.files);
+    const evidenceId = managerAnswers.record(command, snapshot.revision, result);
     return {
       sourceRevision: snapshot.revision,
-      result: executeCilRequest(command, snapshot.files),
+      ...(evidenceId ? { evidenceId } : {}),
+      result,
     };
   });
+  app.post("/api/manager/answers", async (request) =>
+    managerAnswers.submit(request.body, await store.snapshot()),
+  );
   app.post<{ Params: { id: string } }>(
     "/api/manager/reviews/:id/decision",
     (request) => managerReviews.decide(request.params.id, request.body),
