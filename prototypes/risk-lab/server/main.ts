@@ -1,42 +1,17 @@
 import Fastify from "fastify";
-import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { FileStore } from "./store";
 import { registerVaultApi } from "./api";
 import { startLocalServer } from "./startup";
+import { registerStaticFiles } from "./static-files";
 
 const appRoot = fileURLToPath(new URL("..", import.meta.url));
 const store = new FileStore(path.join(appRoot, ".prototype-data", "server"));
 const app = Fastify({ logger: false, bodyLimit: 12_000_000 });
 registerVaultApi(app, store);
 if (process.argv.includes("--production")) {
-  const mime: Record<string, string> = {
-    ".html": "text/html; charset=utf-8",
-    ".js": "text/javascript",
-    ".css": "text/css",
-    ".svg": "image/svg+xml",
-    ".woff2": "font/woff2",
-    ".woff": "font/woff",
-    ".ttf": "font/ttf",
-    ".otf": "font/otf",
-  };
-  app.get("/*", async (request, reply) => {
-    const urlPath = new URL(request.url, "http://localhost").pathname;
-    const rel =
-      urlPath === "/" ? "index.html" : decodeURIComponent(urlPath).slice(1);
-    const dist = path.join(appRoot, "dist"),
-      file = path.resolve(dist, rel);
-    if (!file.startsWith(dist + path.sep)) return reply.code(403).send();
-    try {
-      return reply
-        .header("Cache-Control", "no-cache")
-        .type(mime[path.extname(file)] ?? "application/octet-stream")
-        .send(await fs.readFile(file));
-    } catch {
-      return reply.code(404).send({ error: "资源不存在" });
-    }
-  });
+  registerStaticFiles(app, path.join(appRoot, "dist"));
 } else {
   const { createServer } = await import("vite");
   const vite = await createServer({
