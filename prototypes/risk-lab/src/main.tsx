@@ -63,6 +63,12 @@ const MarkdownPreview = lazy(() =>
 );
 
 const db = new LocalVault();
+// A previous production service worker can otherwise keep serving an older
+// bundle on the same localhost origin while Vite is used for verification.
+if (import.meta.env.DEV && "serviceWorker" in navigator)
+  void navigator.serviceWorker.getRegistrations().then((registrations) =>
+    Promise.all(registrations.map((registration) => registration.unregister())),
+  );
 const spaces = [
   ["all", "全部"],
   ["Inbox", "收件箱"],
