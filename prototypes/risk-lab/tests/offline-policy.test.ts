@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canPerformAction } from "../src/core/offline-policy";
+import { canPerformAction, newNoteParent } from "../src/core/offline-policy";
 
 describe("Web first-release offline policy", () => {
   it("keeps cached reading, editing and Inbox creation local", () => {
@@ -13,5 +13,11 @@ describe("Web first-release offline policy", () => {
     expect(canPerformAction(true, "structure-change")).toBe(false);
     expect(canPerformAction(true, "server-processing")).toBe(false);
     expect(canPerformAction(false, "attachment-upload")).toBe(true);
+  });
+
+  it("always places offline drafts in Inbox instead of inferring a structural destination", () => {
+    expect(newNoteParent(true, "raw/Projects/项目 A")).toBe("raw/Inbox");
+    expect(newNoteParent(false, "raw/Projects/项目 A")).toBe("raw/Projects/项目 A");
+    expect(newNoteParent(false, "raw/Archive")).toBe("raw/Inbox");
   });
 });

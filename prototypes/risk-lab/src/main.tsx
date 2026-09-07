@@ -10,7 +10,7 @@ import {
 import { downloadAttachment } from "./attachment-files";
 import { EditorBoundary } from "./EditorBoundary";
 import { observeOfflineStatus, offlineStatusText } from "./offline-status";
-import { canPerformAction } from "./core/offline-policy";
+import { canPerformAction, newNoteParent } from "./core/offline-policy";
 import {
   LocalVault,
   moveDocument,
@@ -539,10 +539,7 @@ function App() {
     if (rowRef.current?.conflict || rowRef.current?.pendingMove) return;
     // Inbox remains the default, but a selected ordinary folder is an explicit
     // navigation context for deliberate organization. Archive is never a creation target.
-    const parent =
-      folderPrefix.startsWith("raw/") && !folderPrefix.startsWith("raw/Archive")
-        ? folderPrefix
-        : "raw/Inbox";
+    const parent = newNoteParent(offline, folderPrefix);
     const stem = `${parent}/随手记-${new Date()
       .toISOString()
       .replace(/[-:TZ.]/g, "")
