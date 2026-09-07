@@ -3,10 +3,18 @@ import { ZodError } from "zod";
 import { FileStore, ConflictError, RejectedError } from "./store";
 import { changeSchema, moveSchema } from "../src/core/contracts";
 import { ManagerReviewService } from "./manager-review";
+import { MemoryWorkflowService } from "./memory-workflow";
 
 /** Local prototype routes; tests inject requests without opening a network listener. */
 export function registerVaultApi(app: FastifyInstance, store: FileStore) {
   const managerReviews = new ManagerReviewService(store);
+  const memoryWorkflow = new MemoryWorkflowService(store);
+  const memoryTimer = setInterval(
+    () => void memoryWorkflow.runDue().catch(() => {}),
+    60_000,
+  );
+  memoryTimer.unref();
+  app.addHook("onClose", () => clearInterval(memoryTimer));
   app.addHook("onRequest", async (request, reply) => {
     if (
       !["127.0.0.1:4173", "localhost:4173"].includes(request.headers.host ?? "")
@@ -57,6 +65,11 @@ export function registerVaultApi(app: FastifyInstance, store: FileStore) {
     "/api/manager/reviews/:id/decision",
     (request) => managerReviews.decide(request.params.id, request.body),
   );
+  app.get("/api/memory", () => memoryWorkflow.getState());
+  app.put("/api/memory/config", (request) =>
+    memoryWorkflow.configure(request.body),
+  );
+  app.post("/api/memory/run", () => memoryWorkflow.runManual());
   app.get("/api/health", () => ({
     prototype: true,
     protocolVersion: 2,
