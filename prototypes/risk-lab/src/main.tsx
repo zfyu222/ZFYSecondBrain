@@ -112,6 +112,9 @@ function FolderTree({
   ));
 }
 function App() {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
   const [row, setRow] = useState<LocalState | null>(null),
     rowRef = useRef<LocalState | null>(null);
   const [files, setFiles] = useState<Record<string, string>>({}),
@@ -197,20 +200,38 @@ function App() {
     }
   }
   useEffect(() => {
-    void reload().catch((e) => setError(String(e)));
+    void fetch("/api/auth/session", { credentials: "same-origin" })
+      .then(async (response) => response.ok ? response.json() as Promise<{ authenticated: boolean }> : { authenticated: true })
+      .then((session) => setAuthenticated(session.authenticated))
+      .catch(() => setAuthenticated(true)); // offline opens retain local drafts; the server still enforces auth.
   }, []);
+  async function login() {
+    setAuthError("");
+    const response = await fetch("/api/auth/login", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }),
+    });
+    if (!response.ok) { setAuthError("账号或密码错误"); return; }
+    setPassword("");
+    setAuthenticated(true);
+  }
   useEffect(() => {
+    if (!authenticated) return;
+    void reload().catch((e) => setError(String(e)));
+  }, [authenticated]);
+  useEffect(() => {
+    if (!authenticated) return;
     const onOnline = () => {
       if (!offline) void sync();
     };
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
-  }, [offline]);
+  }, [offline, authenticated]);
   useEffect(() => {
-    if (offline) return;
+    if (offline || !authenticated) return;
     const timer = window.setInterval(() => void sync(), 30_000);
     return () => window.clearInterval(timer);
-  }, [offline]);
+  }, [offline, authenticated]);
   useEffect(() => {
     if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
     let cancelled = false;
@@ -843,6 +864,15 @@ function App() {
       .then(setNotifications)
       .catch((error) => setError(String(error)));
   }, [row?.version, error]);
+  if (authenticated === null)
+    return <main className="auth-gate">正在检查登录状态…</main>;
+  if (!authenticated)
+    return <main className="auth-gate"><form onSubmit={(event) => { event.preventDefault(); void login(); }}>
+      <h1>第二大脑</h1><p>请输入单账号密码以访问此知识库。</p>
+      <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
+      {authError && <p className="error">{authError}</p>}
+      <button className="primary" type="submit">登录</button>
+    </form></main>;
   return (
     <div className="app-shell">
       <aside className="sidebar">
