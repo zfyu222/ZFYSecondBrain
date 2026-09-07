@@ -6,9 +6,14 @@ import { ManagerReviewService } from "./manager-review";
 import { MemoryWorkflowService } from "./memory-workflow";
 import { executeCilRequest, validateCilRequest } from "../src/core/cil";
 import { ManagerAnswerService } from "./manager-answer";
+import { SingleAccountAuth } from "./auth";
 
 /** Local prototype routes; tests inject requests without opening a network listener. */
-export function registerVaultApi(app: FastifyInstance, store: FileStore) {
+export function registerVaultApi(
+  app: FastifyInstance,
+  store: FileStore,
+  auth = new SingleAccountAuth(store.root),
+) {
   const managerReviews = new ManagerReviewService(store);
   const managerAnswers = new ManagerAnswerService();
   const memoryWorkflow = new MemoryWorkflowService(store);
@@ -29,6 +34,24 @@ export function registerVaultApi(app: FastifyInstance, store: FileStore) {
       !["http://127.0.0.1:4173", "http://localhost:4173"].includes(origin)
     )
       return reply.code(403).send({ error: "拒绝跨站请求" });
+    if (
+      auth.enabled &&
+      !["/api/auth/login", "/api/health"].includes(request.url.split("?")[0]) &&
+      !(await auth.authorized(request.headers.cookie))
+    )
+      return reply.code(401).send({ error: "需要登录" });
+  });
+  app.get("/api/auth/session", async (request) => ({ authenticated: await auth.authorized(request.headers.cookie) }));
+  app.post("/api/auth/login", async (request, reply) => {
+    const password = request.body && typeof request.body === "object" && "password" in request.body
+      ? (request.body as { password?: unknown }).password : undefined;
+    const token = await auth.login(password);
+    if (!token) return reply.code(401).send({ error: "账号或密码错误" });
+    return reply.header("Set-Cookie", `zfy_session=${token}; HttpOnly; SameSite=Strict; Path=/`).send({ authenticated: true });
+  });
+  app.post("/api/auth/logout", (request, reply) => {
+    auth.logout(request.headers.cookie);
+    return reply.header("Set-Cookie", "zfy_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0").send({ authenticated: false });
   });
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ConflictError)
