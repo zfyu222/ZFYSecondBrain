@@ -9,6 +9,7 @@ import {
   validateContent,
 } from "../src/core/contracts";
 import { moveNote } from "../src/core/paths";
+import { setNoteTags } from "../src/core/note-metadata";
 import { sampleFiles } from "../src/core/seed";
 import { validateMoves } from "../src/core/moves";
 import { journalSchema, ledgerSchema, type Ledger } from "./journal";
@@ -546,6 +547,74 @@ export class FileStore {
             ...Object.keys(before.files),
             ...Object.keys(before.attachments ?? {}),
           ].filter((p) => p in moved.moves),
+        },
+      );
+    });
+  }
+  /**
+   * Controlled Inbox classification: metadata and path relocation share one
+   * journalled commit, so a tag change can never be left behind a failed move.
+   */
+  classifyInbox(input: {
+    requestId: string;
+    expectedRevision: string;
+    from: string;
+    to: string;
+    tags: string[];
+  }) {
+    return this.exclusive(async () => {
+      await this.recoverUnsafe();
+      const fingerprint = digest({ kind: "classify-inbox", ...input });
+      const ledger = await this.ledger();
+      const previous = Object.hasOwn(ledger, input.requestId)
+        ? ledger[input.requestId]
+        : undefined;
+      if (previous) {
+        if (previous.fingerprint !== fingerprint)
+          throw new Error("幂等键不能用于不同请求");
+        return previous.result;
+      }
+      const before = await this.readUnsafe();
+      if (before.revision !== input.expectedRevision)
+        throw new ConflictError(before);
+      let moved, movedAttachments: Attachments;
+      try {
+        if (!input.from.startsWith("raw/Inbox/") ||
+          !(/^raw\/(Projects|Areas)\//.test(input.to)))
+          throw new Error("Inbox 仅能归类到 Projects 或 Areas");
+        const tagged = {
+          ...before.files,
+          [input.from]: setNoteTags(before.files[input.from] ?? "", input.tags),
+        };
+        if (!(input.from in before.files)) throw new Error("Inbox 来源文档不存在");
+        moved = moveNote(
+          tagged,
+          input.from,
+          input.to,
+          true,
+          Object.keys(before.attachments ?? {}),
+        );
+        movedAttachments = relocateAttachments(before.attachments ?? {}, moved.moves);
+        validateContent(moved.files, movedAttachments);
+      } catch (e) {
+        throw new RejectedError(String(e));
+      }
+      return this.commitUnsafe(
+        {
+          requestId: input.requestId,
+          expectedRevision: input.expectedRevision,
+          moveSequence: before.moves?.length ?? 0,
+          files: moved.files,
+          ...(before.attachments
+            ? { protocolVersion: 2 as const, attachments: movedAttachments }
+            : {}),
+        },
+        fingerprint,
+        {
+          from: input.from,
+          to: input.to,
+          paths: [...Object.keys(before.files), ...Object.keys(before.attachments ?? {})]
+            .filter((p) => p in moved.moves),
         },
       );
     });

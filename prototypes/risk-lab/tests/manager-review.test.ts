@@ -238,4 +238,31 @@ describe("AI manager review boundary", () => {
     expect(rejected.json().status).toBe("rejected");
     expect((await store.snapshot()).revision).toBe(base.revision);
   });
+
+  it("exposes version-checked Inbox classification and its confirmation queue", async () => {
+    const { app, store } = await fixture();
+    const configured = await app.inject({
+      method: "PUT", url: "/api/memory/config", headers,
+      payload: { enabled: true, localTime: "03:00", capabilities: { summaries: false, inbox: true, dualView: false } },
+    });
+    expect(configured.statusCode).toBe(200);
+    const run = await app.inject({ method: "POST", url: "/api/memory/run", headers, payload: {} });
+    expect(run.statusCode, run.body).toBe(200);
+    const runId = run.json().id as string;
+    const queued = await app.inject({
+      method: "POST", url: "/api/memory/inbox", headers,
+      payload: {
+        runId, sourcePath: "raw/Inbox/a.md", destination: "raw/Areas/资料/a.md",
+        tags: ["资料"], confidence: "needs-confirmation", rationale: "需要用户确认",
+      },
+    });
+    expect(queued.statusCode).toBe(200);
+    expect((await store.snapshot()).files["raw/Inbox/a.md"]).toBe("# 原文");
+    const accepted = await app.inject({
+      method: "POST", url: `/api/memory/confirmations/${queued.json().confirmation.id}/decision`, headers,
+      payload: { decision: "accept" },
+    });
+    expect(accepted.statusCode).toBe(200);
+    expect((await store.snapshot()).files["raw/Areas/资料/a.md"]).toContain('tags: ["资料"]');
+  });
 });

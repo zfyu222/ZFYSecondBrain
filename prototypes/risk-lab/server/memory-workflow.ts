@@ -48,12 +48,39 @@ const summaryResultSchema = z
   })
   .strict();
 
+const inboxResultSchema = z
+  .object({
+    runId: z.string().uuid(),
+    sourcePath: z.string().startsWith("raw/Inbox/").endsWith(".md"),
+    destination: z.string().regex(/^raw\/(Projects|Areas)\/.+\.md$/),
+    tags: z.array(z.string()).min(1).max(20),
+    confidence: z.enum(["high", "needs-confirmation"]),
+    rationale: z.string().min(1).max(2000),
+  })
+  .strict();
+const confirmationSchema = z
+  .object({
+    id: z.string().uuid(),
+    runId: z.string().uuid(),
+    capability: z.literal("inbox"),
+    sourcePath: z.string(),
+    destination: z.string(),
+    tags: z.array(z.string()),
+    rationale: z.string(),
+    sourceRevision: z.string(),
+    createdAt: z.string().datetime(),
+    status: z.enum(["pending", "applied", "rejected", "stale"]),
+  })
+  .strict();
+export type MemoryConfirmation = z.infer<typeof confirmationSchema>;
+
 const stateSchema = z
   .object({
     version: z.literal(1),
     config: memoryConfigSchema,
     lastScheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     runs: z.array(runSchema).max(100),
+    confirmations: z.array(confirmationSchema).max(100),
   })
   .strict();
 type MemoryState = z.infer<typeof stateSchema>;
@@ -65,6 +92,7 @@ const defaultState: MemoryState = {
     capabilities: { summaries: false, inbox: false, dualView: false },
   },
   runs: [],
+  confirmations: [],
 };
 
 function localParts(now: Date) {
@@ -234,6 +262,67 @@ export class MemoryWorkflowService {
           : {}),
       });
       return { path: destination, revision: committed.revision };
+    });
+  }
+  applyInbox(input: unknown) {
+    return this.exclusive(async () => {
+      const result = inboxResultSchema.parse(input);
+      const state = await this.read();
+      const run = state.runs.find((item) => item.id === result.runId);
+      if (!run) throw new RejectedError("记忆整理运行记录不存在");
+      if (!state.config.capabilities.inbox)
+        throw new RejectedError("未持续授权 Inbox 整理");
+      if (!run.candidates.some((item) => item.capability === "inbox" && item.path === result.sourcePath))
+        throw new RejectedError("分类结果不属于该次授权整理计划");
+      const snapshot = await this.store.snapshot();
+      if (snapshot.revision !== run.sourceRevision) throw new ConflictError(snapshot);
+      if (!(result.sourcePath in snapshot.files))
+        throw new RejectedError("Inbox 来源文档已不存在");
+      if (result.confidence === "needs-confirmation") {
+        const confirmation: MemoryConfirmation = {
+          id: randomUUID(), runId: run.id, capability: "inbox",
+          sourcePath: result.sourcePath, destination: result.destination,
+          tags: result.tags, rationale: result.rationale,
+          sourceRevision: run.sourceRevision, createdAt: new Date().toISOString(),
+          status: "pending",
+        };
+        await this.write({ ...state, confirmations: [...state.confirmations, confirmation].slice(-100) });
+        return { confirmation, revision: snapshot.revision };
+      }
+      const committed = await this.store.classifyInbox({
+        requestId: `memory-inbox-${createHash("sha256").update(result.sourcePath).digest("hex").slice(0, 24)}-${run.id}`,
+        expectedRevision: run.sourceRevision, from: result.sourcePath,
+        to: result.destination, tags: result.tags,
+      });
+      return { path: result.destination, revision: committed.revision };
+    });
+  }
+  decideConfirmation(id: string, input: unknown) {
+    return this.exclusive(async () => {
+      const decision = z.object({ decision: z.enum(["accept", "reject"]) }).strict().parse(input);
+      const state = await this.read();
+      const confirmation = state.confirmations.find((item) => item.id === id);
+      if (!confirmation) throw new RejectedError("待确认分类不存在");
+      if (confirmation.status !== "pending") throw new RejectedError("该待确认分类已处理");
+      if (decision.decision === "reject") {
+        const confirmations = state.confirmations.map((item) => item.id === id ? { ...item, status: "rejected" as const } : item);
+        await this.write({ ...state, confirmations });
+        return { confirmation: confirmations.find((item) => item.id === id)! };
+      }
+      const snapshot = await this.store.snapshot();
+      if (snapshot.revision !== confirmation.sourceRevision) {
+        const confirmations = state.confirmations.map((item) => item.id === id ? { ...item, status: "stale" as const } : item);
+        await this.write({ ...state, confirmations });
+        throw new ConflictError(snapshot);
+      }
+      const committed = await this.store.classifyInbox({
+        requestId: `memory-confirm-${confirmation.id}`,
+        expectedRevision: confirmation.sourceRevision, from: confirmation.sourcePath,
+        to: confirmation.destination, tags: confirmation.tags,
+      });
+      const confirmations = state.confirmations.map((item) => item.id === id ? { ...item, status: "applied" as const } : item);
+      await this.write({ ...state, confirmations });
+      return { confirmation: confirmations.find((item) => item.id === id)!, revision: committed.revision };
     });
   }
   private async run(

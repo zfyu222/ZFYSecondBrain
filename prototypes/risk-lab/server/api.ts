@@ -92,6 +92,13 @@ export function registerVaultApi(app: FastifyInstance, store: FileStore) {
   app.post("/api/memory/summaries", (request) =>
     memoryWorkflow.applySummary(request.body),
   );
+  app.post("/api/memory/inbox", (request) =>
+    memoryWorkflow.applyInbox(request.body),
+  );
+  app.post<{ Params: { id: string } }>(
+    "/api/memory/confirmations/:id/decision",
+    (request) => memoryWorkflow.decideConfirmation(request.params.id, request.body),
+  );
   app.get("/api/health", () => ({
     prototype: true,
     protocolVersion: 2,

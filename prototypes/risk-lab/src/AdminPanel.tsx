@@ -30,6 +30,14 @@ type MemoryState = {
     message: string;
     candidates: MemoryCandidate[];
   }[];
+  confirmations: {
+    id: string;
+    sourcePath: string;
+    destination: string;
+    tags: string[];
+    rationale: string;
+    status: "pending" | "applied" | "rejected" | "stale";
+  }[];
 };
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
@@ -127,6 +135,21 @@ export default function AdminPanel({
       await json("/api/memory/run", { method: "POST" });
       await load();
     } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function decideInbox(id: string, decision: "accept" | "reject") {
+    setBusy(true);
+    try {
+      await json(`/api/memory/confirmations/${id}/decision`, {
+        method: "POST", body: JSON.stringify({ decision }),
+      });
+      await load();
+      if (decision === "accept") onVaultChanged();
+    } catch (reason) {
+      await load().catch(() => {});
       setError(String(reason));
     } finally {
       setBusy(false);
@@ -261,6 +284,28 @@ export default function AdminPanel({
                   </ul>
                 </article>
               )}
+              {memory?.confirmations.length ? (
+                <section className="memory-confirmations">
+                  <h3>待确认 Inbox 分类</h3>
+                  {[...memory.confirmations].reverse().slice(0, 10).map((item) => (
+                    <article className="review-card" key={item.id}>
+                      <div className="review-heading">
+                        <strong>{item.sourcePath}</strong>
+                        <span>{reviewStatusLabel[item.status]}</span>
+                      </div>
+                      <p>建议移至 <code>{item.destination}</code></p>
+                      <p>标签：{item.tags.join("、")}</p>
+                      <p>{item.rationale}</p>
+                      {item.status === "pending" && (
+                        <div className="tool-row">
+                          <button disabled={busy} onClick={() => void decideInbox(item.id, "reject")}>保留在 Inbox</button>
+                          <button className="primary" disabled={busy} onClick={() => void decideInbox(item.id, "accept")}>确认分类并验版</button>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </section>
+              ) : null}
             </div>
           </div>
         </div>

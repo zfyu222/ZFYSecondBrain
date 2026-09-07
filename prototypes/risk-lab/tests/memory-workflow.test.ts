@@ -31,7 +31,9 @@ async function fixture() {
       "raw/Inbox/今日.md": md,
       "raw/Inbox/今日.opml": opml,
       "raw/Inbox/今日.note.yaml": recordDualView(md, opml, new Date().toISOString()),
+      "raw/Inbox/清单.md": "# 睡眠清单\n\n今晚早点睡",
       "raw/Areas/健康.md": "# 健康",
+      "raw/Areas/索引.md": "关联：[[raw/Inbox/清单]]",
       "raw/Archive/旧.md": "# 旧资料",
     },
   });
@@ -78,8 +80,8 @@ describe("daily memory workflow", () => {
   it("plans only enabled first-release capabilities over server snapshots", async () => {
     const { store } = await fixture();
     const candidates = planMemoryRun(await store.snapshot(), config);
-    expect(candidates.filter((item) => item.capability === "summaries")).toHaveLength(2);
-    expect(candidates.filter((item) => item.capability === "inbox")).toHaveLength(1);
+    expect(candidates.filter((item) => item.capability === "summaries")).toHaveLength(4);
+    expect(candidates.filter((item) => item.capability === "inbox")).toHaveLength(2);
     expect(candidates.some((item) => item.capability === "dualView")).toBe(false);
     expect(candidates.some((item) => item.path.includes("Archive"))).toBe(false);
   });
@@ -122,5 +124,57 @@ describe("daily memory workflow", () => {
     const run = await service.runManual();
     expect(run.message).toContain("未修改知识库");
     expect(await store.snapshot()).toEqual(before);
+  });
+
+  it("classifies high-confidence Inbox work as one tagged, reference-safe move", async () => {
+    const { store, service } = await fixture();
+    await service.configure(config);
+    const run = await service.runManual();
+    const response = await service.applyInbox({
+      runId: run.id, sourcePath: "raw/Inbox/清单.md",
+      destination: "raw/Areas/健康/清单.md", tags: ["健康", "睡眠"],
+      confidence: "high", rationale: "内容明确是睡眠记录",
+    });
+    const snapshot = await store.snapshot();
+    expect(response.path).toBe("raw/Areas/健康/清单.md");
+    expect(snapshot.files["raw/Inbox/清单.md"]).toBeUndefined();
+    expect(snapshot.files["raw/Areas/健康/清单.md"]).toContain('tags: ["健康", "睡眠"]');
+    expect(snapshot.files["raw/Areas/索引.md"]).toContain("[[raw/Areas/健康/清单]]");
+    expect(snapshot.moves).toHaveLength(1);
+  });
+
+  it("queues uncertain Inbox work without touching raw, then rejects it safely", async () => {
+    const { store, service } = await fixture();
+    await service.configure(config);
+    const run = await service.runManual();
+    const before = await store.snapshot();
+    const queued = await service.applyInbox({
+      runId: run.id, sourcePath: "raw/Inbox/今日.md",
+      destination: "raw/Projects/生活/今日.md", tags: ["待确认"],
+      confidence: "needs-confirmation", rationale: "无法区分项目与领域",
+    });
+    if (!("confirmation" in queued) || !queued.confirmation)
+      throw new Error("低置信度分类应进入待确认队列");
+    expect(await store.snapshot()).toEqual(before);
+    expect(queued.confirmation.status).toBe("pending");
+    const rejected = await service.decideConfirmation(queued.confirmation.id, { decision: "reject" });
+    expect(rejected.confirmation.status).toBe("rejected");
+    expect((await store.snapshot()).files["raw/Inbox/今日.md"]).toBeDefined();
+  });
+
+  it("blocks a planned Inbox move when the source snapshot changed", async () => {
+    const { store, service } = await fixture();
+    await service.configure(config);
+    const run = await service.runManual();
+    await store.commit({
+      requestId: "inbox-source-edited", expectedRevision: run.sourceRevision,
+      files: { ...(await store.snapshot()).files, "raw/Inbox/今日.md": "# 已手工更新" },
+    });
+    await expect(service.applyInbox({
+      runId: run.id, sourcePath: "raw/Inbox/今日.md",
+      destination: "raw/Areas/健康/今日.md", tags: ["健康"],
+      confidence: "high", rationale: "过期计划",
+    })).rejects.toBeInstanceOf(ConflictError);
+    expect((await store.snapshot()).files["raw/Inbox/今日.md"]).toBe("# 已手工更新");
   });
 });
