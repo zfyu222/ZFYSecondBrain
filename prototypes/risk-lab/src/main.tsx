@@ -10,6 +10,7 @@ import {
 import { downloadAttachment } from "./attachment-files";
 import { EditorBoundary } from "./EditorBoundary";
 import { observeOfflineStatus, offlineStatusText } from "./offline-status";
+import { canPerformAction } from "./core/offline-policy";
 import {
   LocalVault,
   moveDocument,
@@ -362,7 +363,13 @@ function App() {
     }
   }
   async function trashCurrent() {
-    if (operationBusy.current || !rowRef.current || (!hasMd && !hasMap)) return;
+    if (
+      operationBusy.current ||
+      !rowRef.current ||
+      (!hasMd && !hasMap) ||
+      !canPerformAction(offline, "structure-change")
+    )
+      return;
     operationBusy.current = true;
     setBusy(true);
     setError("");
@@ -389,7 +396,12 @@ function App() {
     }
   }
   async function restoreTrash(id: string) {
-    if (operationBusy.current || !rowRef.current) return;
+    if (
+      operationBusy.current ||
+      !rowRef.current ||
+      !canPerformAction(offline, "structure-change")
+    )
+      return;
     const entry = trashEntries.find((item) => item.id === id);
     if (!entry) return;
     operationBusy.current = true;
@@ -410,7 +422,7 @@ function App() {
     }
   }
   async function move(target = destination) {
-    if (operationBusy.current) return;
+    if (operationBusy.current || !canPerformAction(offline, "structure-change")) return;
     operationBusy.current = true;
     setBusy(true);
     setError("");
@@ -432,7 +444,12 @@ function App() {
   async function moveSelectedFolder() {
     const source = folderPrefix,
       target = folderDestination.trim();
-    if (operationBusy.current || source.split("/").length < 3 || !target)
+    if (
+      operationBusy.current ||
+      source.split("/").length < 3 ||
+      !target ||
+      !canPerformAction(offline, "structure-change")
+    )
       return;
     operationBusy.current = true;
     setBusy(true);
@@ -461,7 +478,12 @@ function App() {
     void move(`raw/Archive/${name}.md`);
   }
   async function importMedia(file: File) {
-    if (operationBusy.current || !rowRef.current) return;
+    if (
+      operationBusy.current ||
+      !rowRef.current ||
+      !canPerformAction(offline, "attachment-upload")
+    )
+      return;
     operationBusy.current = true;
     setBusy(true);
     setError("");
@@ -545,7 +567,12 @@ function App() {
     rememberOpened(stem);
   }
   function newTemplate() {
-    if (rowRef.current?.conflict || rowRef.current?.pendingMove) return;
+    if (
+      rowRef.current?.conflict ||
+      rowRef.current?.pendingMove ||
+      !canPerformAction(offline, "structure-change")
+    )
+      return;
     const stem = `raw/Areas/_templates/模板-${new Date()
       .toISOString()
       .replace(/[-:TZ.]/g, "")
@@ -643,7 +670,13 @@ function App() {
     }
   }
   function enableMapView() {
-    if (!hasMd || hasMap || editingLocked) return;
+    if (
+      !hasMd ||
+      hasMap ||
+      editingLocked ||
+      !canPerformAction(offline, "structure-change")
+    )
+      return;
     let mapTitle = active.split("/").pop() ?? "未命名";
     try {
       mapTitle = noteTitle(filesRef.current[active + ".md"]) ?? mapTitle;
@@ -659,7 +692,13 @@ function App() {
     setView("map");
   }
   function enableMarkdownView() {
-    if (!hasMap || hasMd || editingLocked) return;
+    if (
+      !hasMap ||
+      hasMd ||
+      editingLocked ||
+      !canPerformAction(offline, "structure-change")
+    )
+      return;
     try {
       const opml = filesRef.current[active + ".opml"];
       const markdown = markdownFromMap(parseOpml(opml));
@@ -673,7 +712,13 @@ function App() {
     }
   }
   function recordDualBaseline() {
-    if (!hasMd || !hasMap || editingLocked) return;
+    if (
+      !hasMd ||
+      !hasMap ||
+      editingLocked ||
+      !canPerformAction(offline, "structure-change")
+    )
+      return;
     update({
       [active + ".note.yaml"]: recordDualView(
         filesRef.current[active + ".md"],
@@ -683,7 +728,13 @@ function App() {
     });
   }
   function syncDualView(source: "markdown" | "map") {
-    if (!hasMd || !hasMap || editingLocked) return;
+    if (
+      !hasMd ||
+      !hasMap ||
+      editingLocked ||
+      !canPerformAction(offline, "structure-change")
+    )
+      return;
     try {
       const markdown = filesRef.current[active + ".md"];
       const opml = filesRef.current[active + ".opml"];
@@ -895,7 +946,7 @@ function App() {
           <button disabled={editingLocked} onClick={() => newNote("map")}>
             ＋ 导图
           </button>
-          <button disabled={editingLocked} onClick={newTemplate}>
+          <button disabled={offline || editingLocked} onClick={newTemplate}>
             ＋ 模板
           </button>
         </div>
@@ -1137,7 +1188,7 @@ function App() {
               {activeFavorite ? "★ 已喜爱" : "☆ 喜爱"}
             </button>
             <button
-              disabled={editingLocked || (!hasMd && !hasMap)}
+              disabled={offline || editingLocked || (!hasMd && !hasMap)}
               onClick={() => void trashCurrent()}
             >
               移入回收站
@@ -1263,20 +1314,20 @@ function App() {
             思维导图
           </button>
           {hasMd && !hasMap && (
-            <button disabled={editingLocked} onClick={enableMapView}>
+            <button disabled={offline || editingLocked} onClick={enableMapView}>
               为本文启用导图
             </button>
           )}
           {hasMap && !hasMd && (
-            <button disabled={editingLocked} onClick={enableMarkdownView}>
+            <button disabled={offline || editingLocked} onClick={enableMarkdownView}>
               为本文生成 Markdown
             </button>
           )}
           {hasMd && hasMap && (
             <>
-              <button disabled={editingLocked} onClick={recordDualBaseline}>记录当前双视图基线</button>
-              <button disabled={editingLocked} onClick={() => syncDualView("markdown")}>以 Markdown 为准同步</button>
-              <button disabled={editingLocked} onClick={() => syncDualView("map")}>以导图为准同步</button>
+              <button disabled={offline || editingLocked} onClick={recordDualBaseline}>记录当前双视图基线</button>
+              <button disabled={offline || editingLocked} onClick={() => syncDualView("markdown")}>以 Markdown 为准同步</button>
+              <button disabled={offline || editingLocked} onClick={() => syncDualView("map")}>以导图为准同步</button>
             </>
           )}
           <span>独立编辑与保存 · 当前可手动选择同步来源</span>
@@ -1293,13 +1344,14 @@ function App() {
               <section>
                 <div className="pane-label">原文 / SOURCE</div>
                 <label className="attachment-picker">
-                  添加图片、音视频或 PDF（原型 ≤ 1 MB）
+                  添加图片、音视频或 PDF（需联网，原型 ≤ 1 MB）
                   <input
                     type="file"
                     aria-label="添加本机附件"
                     accept={Object.keys(mediaTypes)
                       .map((ext) => "." + ext)
                       .join(",")}
+                    disabled={offline}
                     onChange={(event) => {
                       const file = event.currentTarget.files?.[0];
                       event.currentTarget.value = "";
@@ -1585,7 +1637,7 @@ function App() {
                 {trashEntries.map((entry) => (
                   <button
                     key={entry.id}
-                    disabled={busy}
+                    disabled={offline || busy}
                     onClick={() => void restoreTrash(entry.id)}
                   >
                     恢复 {entry.stem.split("/").pop()} · {new Date(entry.at).toLocaleString()}
