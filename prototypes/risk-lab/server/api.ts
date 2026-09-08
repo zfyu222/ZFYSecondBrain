@@ -6,7 +6,7 @@ import { ManagerReviewService } from "./manager-review";
 import { MemoryWorkflowService } from "./memory-workflow";
 import { executeCilRequest, validateCilRequest } from "../src/core/cil";
 import { ManagerAnswerService } from "./manager-answer";
-import { DeepSeekManager } from "./deepseek-manager";
+import { DeepSeekManager, deepSeekConfigFromEnvironment } from "./deepseek-manager";
 import { SingleAccountAuth } from "./auth";
 import type { AccessControl } from "./access-control";
 
@@ -154,6 +154,7 @@ export function registerVaultApi(
     prototype: true,
     protocolVersion: 2,
     ai: false,
+    aiConfigured: Boolean(deepSeekConfigFromEnvironment().apiKey),
     storage: ".prototype-data/server",
   }));
 }

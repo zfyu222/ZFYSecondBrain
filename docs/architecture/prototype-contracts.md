@@ -125,7 +125,7 @@ layers:
 
 | 接口                | 输入 / 输出                                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------------------------ |
-| `GET /api/health`   | 原型运行信息                                                                                           |
+| `GET /api/health`   | 原型运行信息；`aiConfigured` 只表明服务端是否配置模型密钥，不回显密钥或模型回答                                                                        |
 | `GET /api/snapshot` | `{ revision, files, moves, protocolVersion?, attachments? }`；有附件时要求请求头 `X-Vault-Protocol: 2` |
 | `POST /api/commit`  | `{ protocolVersion: 2, requestId, expectedRevision, moveSequence, files, attachments }` → 新快照       |
 | `POST /api/move`    | `{ protocolVersion: 2, requestId, expectedRevision, from, to }` → 新快照                               |

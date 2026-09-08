@@ -48,6 +48,13 @@ describe("local protocol boundary", () => {
     expect(current.json()).toEqual(base);
     expect(current.headers["cache-control"]).toBe("no-store");
   });
+  it("reports only whether a model key is configured, never the credential", async () => {
+    const { app } = await fixture();
+    const health = await app.inject({ url: "/api/health", headers });
+    expect(health.statusCode).toBe(200);
+    expect(health.json()).toMatchObject({ prototype: true, ai: false, aiConfigured: false });
+    expect(JSON.stringify(health.json())).not.toContain("DEEPSEEK_API_KEY");
+  });
   it("rejects old or future writes without discarding binary originals", async () => {
     const { app, store, base } = await fixture();
     for (const protocolVersion of [undefined, 99]) {

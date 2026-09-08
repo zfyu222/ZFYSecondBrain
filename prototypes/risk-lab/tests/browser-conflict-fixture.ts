@@ -15,6 +15,7 @@ const health = await fetch(origin + "/api/health").then((r) => r.json());
 if (
   !health.prototype ||
   health.ai !== false ||
+  health.aiConfigured !== false ||
   health.storage !== ".prototype-data/server"
 )
   throw new Error("Not the isolated test service");
