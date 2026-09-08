@@ -60,6 +60,7 @@ import { matchesNoteSearch, matchesTagFilter } from "./core/search";
 import { isTemplateStem, templateName } from "./core/templates";
 import { appearsInFolder, folderTree, type FolderNode } from "./core/folders";
 import { describeStorageError } from "./core/storage-errors";
+import { requestPersistentStorage } from "./storage-persistence";
 import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
@@ -140,6 +141,7 @@ function App() {
     [error, setError] = useState("");
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const [offlineNotice, setOfflineNotice] = useState("");
+  const [storageNotice, setStorageNotice] = useState("");
   const [busy, setBusy] = useState(false),
     [offline, setOffline] = useState(false),
     [query, setQuery] = useState(""),
@@ -226,6 +228,15 @@ function App() {
       .then((session) => setAuthenticated(session.authenticated))
       .catch(() => setAuthenticated(true)); // offline opens retain local drafts; the server still enforces auth.
   }, []);
+  useEffect(() => {
+    if (!authenticated) return;
+    let cancelled = false;
+    void requestPersistentStorage(navigator.storage).then((granted) => {
+      if (!cancelled && granted === false)
+        setStorageNotice("浏览器未授予持久存储，建议及时同步或导出未同步草稿。");
+    });
+    return () => { cancelled = true; };
+  }, [authenticated]);
   async function login() {
     setAuthError("");
     const response = await fetch("/api/auth/login", {
@@ -1469,6 +1480,11 @@ function App() {
         {offlineNotice && (
           <div className="notice" role="status">
             {offlineNotice}
+          </div>
+        )}
+        {storageNotice && (
+          <div className="notice" role="status">
+            {storageNotice}
           </div>
         )}
         <div className="tabs">
