@@ -33,7 +33,12 @@ try {
   await submit.waitFor();
   assert.equal(await submit.isEnabled(), true, "已配置模型时提问按钮应可用");
 
-  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const mobileContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const mobile = await mobileContext.newPage();
   await mobile.goto(`${origin}/`, { waitUntil: "networkidle" });
   await mobile.getByText("原文 / SOURCE").waitFor();
   await mobile
@@ -46,7 +51,11 @@ try {
     true,
     "390px 窄屏出现整页横向溢出",
   );
-  await mobile.close();
+  const touchTarget = await mobile
+    .getByRole("button", { name: "同步并检查外部变更" })
+    .evaluate((element) => element.getBoundingClientRect().height);
+  assert.ok(touchTarget >= 44, `触屏同步按钮高度不足：${touchTarget}`);
+  await mobileContext.close();
   console.log(`浏览器 smoke 通过：${origin}`);
 } finally {
   await browser.close();
