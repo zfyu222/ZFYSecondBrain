@@ -63,6 +63,24 @@ describe("portable dual-view baselines", () => {
     );
   });
 
+  it("advances the baseline when a source-only edit projects to the old target", () => {
+    const markdown = "# Root\n\n正文\n";
+    const opml = serializeOpml(mapFromMarkdown("Root", markdown));
+    const state = readDualView(recordDualView(markdown, opml, "2026-09-04T03:00:00.000Z"))!;
+    const sourceCurrent = "# Root\n\n正文\n\n<!-- local annotation -->\n";
+    const targetCurrent = opml.replace("</head>", "<owner>me</owner></head>");
+    const result = incrementalDualSync({
+      state,
+      source: "markdown",
+      sourceCurrent,
+      targetCurrent,
+      convert: () => opml,
+      validateTarget: parseOpml,
+      mergeStructured: mergeOpmlProjection,
+    });
+    expect(result).toEqual({ kind: "synced", content: targetCurrent, changed: false });
+  });
+
   it("keeps an independently edited map node body while Markdown adds a child", () => {
     const markdown = "# Root\n\n初始正文\n";
     const opml = serializeOpml(mapFromMarkdown("笔记", markdown));

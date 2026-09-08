@@ -216,7 +216,10 @@ export function incrementalDualSync(options: {
     return { kind: "synced", content: converted, changed: converted !== targetCurrent };
   }
   if (converted === targetBaseline)
-    return { kind: "unchanged", content: targetCurrent };
+    // The source changed, but its projection has no effect on the target.
+    // Still return a successful result so the caller records a fresh common
+    // baseline; otherwise the same harmless source edit is reported forever.
+    return { kind: "synced", content: targetCurrent, changed: false };
 
   if (mergeStructured) {
     try {
