@@ -44,6 +44,8 @@ pnpm browser:offline-smoke
 
 其中 `browser:tab-smoke` 验证同一浏览器的标签页版本广播，`browser:dual-view-smoke` 验证共同基线下的非重叠增量合并，`browser:media-smoke` 验证桌面 Chrome 和 390px 窄屏的媒体预览。测试服务结束后会清理其临时进程；失败时先保留输出，再检查端口是否被其他本地服务占用。
 
+远程最后验收可运行 `ZFY_REMOTE_ORIGIN=https://… ZFY_REMOTE_PASSWORD=… ZFY_REMOTE_ALLOW_SELF_SIGNED=1 pnpm browser:remote-smoke`；该命令只验证登录、主界面和 390px 布局，不写入知识库。正式域名证书通过后省略自签名开关。
+
 静态资源服务对非法 URL 编码和 NUL 路径会明确拒绝；Fastify 层统一返回 400，避免把请求格式错误误报为服务端 500。
 
 ## 远程验收顺序
