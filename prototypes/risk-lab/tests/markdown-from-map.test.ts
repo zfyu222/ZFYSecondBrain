@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { markdownFromMap } from "../src/core/markdown-from-map";
 import { topic } from "../src/core/formats";
+import { mapFromMarkdown } from "../src/core/map-from-markdown";
 
 describe("manual map Markdown generation", () => {
+  it("does not manufacture a heading for the internal root of a Markdown-origin map", () => {
+    const source = "# Root\n\n正文\n\n## 子项\n\n子正文\n";
+    expect(markdownFromMap(mapFromMarkdown("内部标题", source))).toBe(source);
+  });
+
   it("writes portable title, hierarchy and node bodies without relation claims", () => {
     const root = topic("减脂");
     root.body = "总览";

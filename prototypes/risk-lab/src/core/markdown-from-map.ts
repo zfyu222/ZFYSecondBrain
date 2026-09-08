@@ -10,13 +10,20 @@ function headingText(value: string) {
  * sibling relationship is causal, evidential, or otherwise semantic.
  */
 export function markdownFromMap(map: Mindmap) {
-  const chunks = [`---\ntitle: ${JSON.stringify(map.title)}\n---`];
+  const syntheticMarkdownRoot = map.root.attrs.zfySource === "markdown";
+  const chunks = syntheticMarkdownRoot && map.root.attrs.zfyFrontMatter !== "true"
+    ? []
+    : [`---\ntitle: ${JSON.stringify(map.title)}\n---`];
   const render = (node: Topic, depth: number) => {
     const heading = "#".repeat(Math.min(depth, 6));
     chunks.push(`${heading} ${headingText(node.text)}`);
     if (node.body.trim()) chunks.push(node.body.trim());
     for (const child of node.children) render(child, depth + 1);
   };
-  render(map.root, 1);
+  if (syntheticMarkdownRoot) {
+    if (map.root.body.trim()) chunks.push(map.root.body.trim());
+    for (const child of map.root.children) render(child, 1);
+  } else render(map.root, 1);
+  if (!chunks.length) return "";
   return chunks.join("\n\n") + "\n";
 }

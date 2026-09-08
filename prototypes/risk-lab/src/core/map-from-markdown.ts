@@ -9,6 +9,12 @@ type StackEntry = { level: number; node: ReturnType<typeof topic> };
  */
 export function mapFromMarkdown(title: string, source: string): Mindmap {
   const root = topic(title);
+  const hasFrontMatter = /^\uFEFF?---\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)(?:\r?\n|$)/.test(source);
+  // This root is an internal container, not a user-authored Markdown heading.
+  // Keep the marker in OPML so a later map -> Markdown conversion can avoid
+  // manufacturing an extra top-level heading.
+  root.attrs.zfySource = "markdown";
+  root.attrs.zfyFrontMatter = hasFrontMatter ? "true" : "false";
   const stack: StackEntry[] = [{ level: 0, node: root }];
   const body = new Map<ReturnType<typeof topic>, string[]>();
   body.set(root, []);
