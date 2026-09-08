@@ -22,7 +22,7 @@ describe("DeepSeek manager boundary", () => {
         citations: [{ path: "raw/Inbox/evidence.md", quote: "本周完成本地验证。" }],
       }) } }],
     })));
-    const manager = new DeepSeekManager({ apiKey: "test-key", baseUrl: "https://model.example", model: "test-model" }, fetcher);
+    const manager = new DeepSeekManager({ apiKey: "test-key", baseUrl: "https://model.example", model: "test-model", thinking: "disabled" }, fetcher);
     const answer = await manager.ask({ question: "项目状态" }, snapshot, new ManagerAnswerService());
     expect(answer).toMatchObject({ sourceRevision: snapshot.revision, task: "个人知识问答" });
     expect(fetcher).toHaveBeenCalledWith("https://model.example/chat/completions", expect.objectContaining({ method: "POST" }));
@@ -38,13 +38,13 @@ describe("DeepSeek manager boundary", () => {
         citations: [{ path: "raw/Archive/private.md", quote: "不得发送" }],
       }) } }],
     })));
-    const manager = new DeepSeekManager({ apiKey: "test-key", baseUrl: "https://model.example/", model: "test-model" }, fetcher);
+    const manager = new DeepSeekManager({ apiKey: "test-key", baseUrl: "https://model.example/", model: "test-model", thinking: "disabled" }, fetcher);
     await expect(manager.ask({ question: "项目状态" }, snapshot, new ManagerAnswerService())).rejects.toThrow("未读取");
   });
 
   it("keeps credentials configurable only through server environment", () => {
     expect(deepSeekConfigFromEnvironment({})).toEqual({
-      apiKey: undefined, baseUrl: "https://api.deepseek.com", model: "deepseek-v4-flash",
+      apiKey: undefined, baseUrl: "https://api.deepseek.com", model: "deepseek-v4-flash", thinking: "disabled",
     });
   });
 
@@ -61,7 +61,7 @@ describe("DeepSeek manager boundary", () => {
     const fetcher = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ destination: "raw/Areas/资料/整理.md", tags: ["资料"], confidence: "high", rationale: "内容明确" }) } }] })))
       .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ layers: ["短", "内容".repeat(20)] }) } }] })));
-    const manager = new DeepSeekManager({ apiKey: "test-key", baseUrl: "https://model.example", model: "test-model" }, fetcher);
+    const manager = new DeepSeekManager({ apiKey: "test-key", baseUrl: "https://model.example", model: "test-model", thinking: "disabled" }, fetcher);
     const workflow = new MemoryWorkflowService(store);
     await workflow.configure({ enabled: true, localTime: "03:00", capabilities: { summaries: true, inbox: true, dualView: false } });
     const run = await workflow.runManual();
@@ -72,5 +72,27 @@ describe("DeepSeek manager boundary", () => {
     expect(after.files["derived/summaries/Areas/资料/整理.summary.yaml"]).toContain("source: ai");
     expect(after.files["raw/Areas/资料/整理.md"]).toContain("内容");
     expect(after.files["raw/Inbox/整理.md"]).toBeUndefined();
+  });
+
+  it("falls back to a validated single summary layer when the model cannot satisfy a multi-layer ratio", async () => {
+    const parent = path.resolve(".prototype-data/tests");
+    await fs.mkdir(parent, { recursive: true });
+    const store = new FileStore(await fs.mkdtemp(path.join(parent, "deepseek-summary-fallback-")));
+    await store.init(false);
+    await store.commit({
+      requestId: "deepseek-summary-fallback-seed", expectedRevision: (await store.snapshot()).revision,
+      files: { "raw/Areas/摘要.md": "内容".repeat(200) },
+    });
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ layers: ["摘要", "过短"] }) } }] })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ layers: ["一", "二", "三"] }) } }] })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ layers: ["本地验收"] }) } }] })));
+    const manager = new DeepSeekManager({ apiKey: "test-key", baseUrl: "https://model.example", model: "test-model", thinking: "disabled" }, fetcher);
+    const workflow = new MemoryWorkflowService(store);
+    await workflow.configure({ enabled: true, localTime: "03:00", capabilities: { summaries: true, inbox: false, dualView: false } });
+    const run = await workflow.runManual();
+    await manager.executeMemoryRun(run.id, workflow, () => store.snapshot());
+    expect((await store.snapshot()).files["derived/summaries/Areas/摘要.summary.yaml"]).toContain("本地验收");
+    expect(fetcher).toHaveBeenCalledTimes(3);
   });
 });
