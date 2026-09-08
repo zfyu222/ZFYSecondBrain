@@ -15,6 +15,9 @@ try {
   assert.equal(manifest.ok(), true, "PWA manifest 未加载");
   assert.match(manifest.headers()["content-type"] ?? "", /manifest\+json|json/);
   assert.equal((await manifest.json()).display, "standalone");
+  const icon = await page.request.get(`${origin}/icon.svg`);
+  assert.equal(icon.ok(), true, "PWA 图标未加载");
+  assert.match(icon.headers()["content-type"] ?? "", /image\/svg\+xml/);
 
   await page.goto(`${origin}/`, { waitUntil: "networkidle" });
   assert.equal(await page.title(), "第二大脑 · 技术实验室");
