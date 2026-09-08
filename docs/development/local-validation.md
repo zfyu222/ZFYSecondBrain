@@ -4,7 +4,7 @@
 
 ## 启动
 
-在 `prototypes/risk-lab` 目录执行：
+在仓库根目录执行（也可进入 `prototypes/risk-lab` 使用对应子项目脚本）：
 
 ```text
 pnpm install
@@ -16,10 +16,7 @@ pnpm dev
 ## 必跑门禁
 
 ```text
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm check:build
+pnpm verify:local
 ```
 
 提交前运行仓库级密钥扫描：
@@ -42,7 +39,7 @@ pnpm browser:tab-smoke
 pnpm browser:offline-smoke
 ```
 
-其中 `browser:tab-smoke` 验证同一浏览器的标签页版本广播，`browser:dual-view-smoke` 验证共同基线下的非重叠增量合并，`browser:media-smoke` 验证桌面 Chrome 和 390px 窄屏的媒体预览。测试服务结束后会清理其临时进程；失败时先保留输出，再检查端口是否被其他本地服务占用。
+根目录 `pnpm verify:browser` 会自动启动或复用本地服务，并验证主页（含可安装 PWA manifest）、双视图和多标签页；其余专项脚本可按需执行。`browser:tab-smoke` 验证同一浏览器的标签页版本广播，`browser:dual-view-smoke` 验证共同基线下的非重叠增量合并，`browser:media-smoke` 验证桌面 Chrome 和 390px 窄屏的媒体预览。测试服务结束后会清理其临时进程；失败时先保留输出，再检查端口是否被其他本地服务占用。
 
 远程最后验收可运行 `ZFY_REMOTE_ORIGIN=https://… ZFY_REMOTE_PASSWORD=… ZFY_REMOTE_ALLOW_SELF_SIGNED=1 pnpm browser:remote-smoke`；该命令只验证登录、主界面和 390px 布局，不写入知识库。正式域名证书通过后省略自签名开关。
 
