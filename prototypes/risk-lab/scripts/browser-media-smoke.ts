@@ -100,6 +100,21 @@ try {
     assert.equal(await page.locator(".attachment-media audio").count(), 1, "音频控件未出现");
     assert.equal(await page.locator(".attachment-media video").count(), 1, "视频控件未出现");
     assert.equal(await page.locator(".attachment-media iframe").count(), 1, "PDF 查看器未出现");
+    const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await mobile.goto(`${origin}/`, { waitUntil: "networkidle" });
+    if (await mobile.locator('input[type="password"]').count()) {
+      await mobile.locator('input[type="password"]').fill(password);
+      await mobile.getByRole("button", { name: "登录" }).click();
+    }
+    await mobile.getByText("原文 / SOURCE").waitFor();
+    assert.equal(
+      await mobile.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+      true,
+      "媒体预览在 390px 窄屏产生横向溢出",
+    );
+    await mobile.close();
     console.log(`浏览器媒体预览 smoke 通过：${origin}`);
   } finally {
     await browser.close();
