@@ -12,6 +12,8 @@ const names = [
   "assets/MapEditor.js",
   "assets/MapEditor.css",
   "assets/KaTeX_Main-Regular.woff2",
+  "manifest.webmanifest",
+  "icon.svg",
 ];
 function worker(failInstall = false) {
   const listeners = new Map<string, (event: unknown) => void>();
@@ -87,6 +89,8 @@ describe("offline shell and lazy editor cache", () => {
       "/assets/MapEditor.js",
       "/assets/MarkdownEditor.js",
       "/assets/index.js",
+      "/icon.svg",
+      "/manifest.webmanifest",
       "/" + shell,
     ]);
   });

@@ -3,6 +3,8 @@ export function offlineAssets(names: string[]) {
     .filter(
       (p) =>
         (/\.(js|css|woff2?|ttf|otf)$/.test(p) && p !== "sw.js") ||
+        p === "manifest.webmanifest" ||
+        p === "icon.svg" ||
         /^offline-shell-[a-f0-9]{64}\.html$/.test(p),
     )
     .sort()
