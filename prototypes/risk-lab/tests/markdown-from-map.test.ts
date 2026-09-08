@@ -14,6 +14,11 @@ describe("manual map Markdown generation", () => {
     expect(markdownFromMap(mapFromMarkdown("笔记", source))).toBe(source);
   });
 
+  it("preserves a UTF-8 BOM from a Markdown-origin map", () => {
+    const source = "\uFEFF# Root\n\n正文\n";
+    expect(markdownFromMap(mapFromMarkdown("笔记", source))).toBe(source);
+  });
+
   it("writes portable title, hierarchy and node bodies without relation claims", () => {
     const root = topic("减脂");
     root.body = "总览";

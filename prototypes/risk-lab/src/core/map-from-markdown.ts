@@ -21,6 +21,7 @@ export function mapFromMarkdown(title: string, source: string): Mindmap {
   // manufacturing an extra top-level heading.
   root.attrs.zfySource = "markdown";
   root.attrs.zfyHasFrontMatter = frontMatter ? "true" : "false";
+  root.attrs.zfyBom = source.startsWith("\uFEFF") ? "true" : "false";
   if (frontMatter) root.attrs.zfyFrontMatterRaw = encode(frontMatter);
   const stack: StackEntry[] = [{ level: 0, node: root }];
   const body = new Map<ReturnType<typeof topic>, string[]>();

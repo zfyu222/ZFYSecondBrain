@@ -38,5 +38,8 @@ export function markdownFromMap(map: Mindmap) {
     for (const child of map.root.children) render(child, 1);
   } else render(map.root, 1);
   if (!chunks.length) return "";
-  return chunks.join("\n\n") + "\n";
+  const output = chunks.join("\n\n") + "\n";
+  return syntheticMarkdownRoot && map.root.attrs.zfyBom === "true"
+    ? "\uFEFF" + output
+    : output;
 }
