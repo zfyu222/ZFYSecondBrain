@@ -1,0 +1,4 @@
+# Set ZFY_PUBLIC_HOST to a trusted DNS name before starting Caddy.
+{$ZFY_PUBLIC_HOST} {
+  reverse_proxy 127.0.0.1:4173
+}

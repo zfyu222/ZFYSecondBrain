@@ -27,4 +27,11 @@ describe("self-hosted deployment files", () => {
     expect(ignore).toContain(".prototype-data");
     expect(ignore).toContain("node_modules");
   });
+
+  it("provides a trusted-domain reverse proxy template without credentials", async () => {
+    const caddy = await readFile(path.join(root, "Caddyfile.example"), "utf8");
+    expect(caddy).toContain("{$ZFY_PUBLIC_HOST}");
+    expect(caddy).toContain("reverse_proxy 127.0.0.1:4173");
+    expect(caddy).not.toMatch(/password|api.?key|token/i);
+  });
 });
