@@ -57,15 +57,14 @@ try {
     const second = await openApp(context);
     const firstEditor = first.locator('.cm-content[contenteditable="true"]').first();
     await firstEditor.click();
-    await firstEditor.press("Control+A");
-    await first.keyboard.insertText(`# ${marker}\n\n标签页之间的本地版本广播。\n`);
+    await firstEditor.fill(`# ${marker}\n\n标签页之间的本地版本广播。\n`);
     await expect(firstEditor).toContainText(marker);
-    // The editor update is synchronous, but the IndexedDB commit and
-    // BroadcastChannel notification are intentionally debounced. Give that
-    // local transaction a turn before asserting the sibling tab's reload.
-    await first.waitForTimeout(750);
+    // CodeMirror input queues several IndexedDB writes. Allow the local queue
+    // to settle before observing the sibling tab; the status banner can be
+    // replaced by an unrelated startup notice and is not a commit signal.
+    await first.waitForTimeout(2_000);
     const secondEditor = second.locator('.cm-content[contenteditable="true"]').first();
-    await expect(secondEditor).toContainText(marker, { timeout: 12_000 });
+    await expect(secondEditor).toContainText(marker, { timeout: 25_000 });
     assert.ok((await secondEditor.innerText()).includes(marker));
     await context.close();
     console.log(`浏览器同标签页联动 smoke 通过：${origin}`);

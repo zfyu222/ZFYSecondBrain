@@ -31,12 +31,12 @@ async function stop(processHandle: ChildProcess) {
 
 async function main() {
   let ownedServer: ChildProcess | undefined;
-  if (!(await healthy())) {
-    const serverCommand = invocation("dev:prototype");
-    ownedServer = spawn(serverCommand.file, serverCommand.args, { stdio: "ignore", shell: false });
-    await waitForHealth();
-  }
   try {
+    if (!(await healthy())) {
+      const serverCommand = invocation("dev:prototype");
+      ownedServer = spawn(serverCommand.file, serverCommand.args, { stdio: "ignore", shell: false });
+      await waitForHealth();
+    }
     for (const script of scripts) {
       console.log(`\n== pnpm ${script} ==`);
       const command = invocation(script);
