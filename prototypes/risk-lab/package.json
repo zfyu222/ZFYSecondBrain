@@ -13,7 +13,8 @@
     "test": "vitest run",
     "browser:smoke": "tsx scripts/browser-smoke.ts",
     "browser:auth-smoke": "tsx scripts/browser-auth-smoke.ts",
-    "browser:offline-smoke": "tsx scripts/browser-offline-smoke.ts"
+    "browser:offline-smoke": "tsx scripts/browser-offline-smoke.ts",
+    "browser:sync-smoke": "tsx scripts/browser-sync-smoke.ts"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.4",
