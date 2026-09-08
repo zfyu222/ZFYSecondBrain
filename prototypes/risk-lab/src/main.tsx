@@ -612,7 +612,16 @@ function App() {
           return;
         }
         if (resolved.kind === "attachment") {
-          setError(`导图引用指向附件，暂不能在导图中打开：${resolved.path}`);
+          const attachment = rowRef.current?.attachments?.[resolved.path];
+          if (!attachment) {
+            setError(`导图引用的附件不存在：${resolved.path}`);
+            return;
+          }
+          // Keep attachments download-only from a map reference. This retains
+          // the user's navigation intent without treating arbitrary bytes as
+          // executable or embedded document content.
+          downloadAttachment(resolved.path, attachment);
+          setMessage("已开始下载导图引用的附件");
           return;
         }
         setError(
