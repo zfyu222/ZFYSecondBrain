@@ -329,6 +329,7 @@ export default function MapEditor({
         tabIndex={0}
         className="map-canvas"
         aria-label="思维导图画布"
+        aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight Control+Z Control+Y"
       >
         <ReactFlow
           nodes={nodes}
