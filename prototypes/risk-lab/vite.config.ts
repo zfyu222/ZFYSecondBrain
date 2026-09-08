@@ -22,7 +22,14 @@ export default defineConfig({
         const digest = createHash("sha256").update(entry.source).digest("hex");
         const shell = `offline-shell-${digest}.html`;
         this.emitFile({ type: "asset", fileName: shell, source: entry.source });
-        const assets = offlineAssets([...Object.keys(bundle), shell]);
+        // Public PWA metadata is copied outside Rollup's bundle; include it
+        // explicitly so offline installs keep their manifest and icon.
+        const assets = offlineAssets([
+          ...Object.keys(bundle),
+          shell,
+          "manifest.webmanifest",
+          "icon.svg",
+        ]);
         const version = "risk-lab-" + digest;
         this.emitFile({
           type: "asset",
