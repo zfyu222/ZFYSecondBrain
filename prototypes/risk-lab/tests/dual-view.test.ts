@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { dualViewChanges, readDualView, recordDualView } from "../src/core/dual-view";
-import { incrementalDualSync, mergeOpmlProjection } from "../src/core/incremental-dual-view";
+import {
+  incrementalDualSync,
+  mergeMarkdownProjection,
+  mergeOpmlProjection,
+} from "../src/core/incremental-dual-view";
 import { mapFromMarkdown } from "../src/core/map-from-markdown";
 import { markdownFromMap } from "../src/core/markdown-from-map";
 import { parseOpml, serializeOpml } from "../src/core/formats";
@@ -77,6 +81,28 @@ describe("portable dual-view baselines", () => {
     const merged = parseOpml(result.content);
     expect(merged.root.body).toBe("导图独立备注");
     expect(merged.root.children[0].children[0].text).toBe("增量节点");
+  });
+
+  it("merges a map root-body edit with a Markdown child insertion", () => {
+    const markdown = "# Root\n";
+    const map = mapFromMarkdown("笔记", markdown);
+    const opml = serializeOpml(map);
+    const state = readDualView(recordDualView(markdown, opml, "2026-09-04T03:00:00.000Z"))!;
+    const changedMap = structuredClone(map);
+    changedMap.root.body = "导图记下的前置说明";
+    const changedOpml = serializeOpml(changedMap);
+    const result = incrementalDualSync({
+      state,
+      source: "opml",
+      sourceCurrent: changedOpml,
+      targetCurrent: "# Root\n\n## Markdown 子节点\n\n保留这段。\n",
+      convert: () => markdownFromMap(parseOpml(changedOpml)),
+      mergeStructured: mergeMarkdownProjection,
+    });
+    expect(result).toMatchObject({ kind: "synced" });
+    if (result.kind !== "synced") throw new Error("expected synced");
+    expect(result.content).toContain("导图记下的前置说明");
+    expect(result.content).toContain("## Markdown 子节点");
   });
 
   it("refuses overlapping edits and legacy baselines with a changed target", () => {

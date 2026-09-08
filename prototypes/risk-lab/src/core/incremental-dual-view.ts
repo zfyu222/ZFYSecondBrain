@@ -102,6 +102,76 @@ export function mergeOpmlProjection(baseText: string, targetText: string, conver
   return serializeOpml(merged);
 }
 
+type MarkdownBlock = { key: string; lines: string[] };
+
+function markdownBlocks(value: string): MarkdownBlock[] {
+  const lines = splitLines(value);
+  const blocks: MarkdownBlock[] = [];
+  let current: MarkdownBlock = { key: "\u0000preamble", lines: [] };
+  const counts = new Map<string, number>();
+  for (const line of lines) {
+    const match = /^(#{1,6})[ \t]+(.+?)[ \t]*\n?$/.exec(line);
+    if (match) {
+      if (current.lines.length) blocks.push(current);
+      const identity = `${match[1].length}\u0000${match[2]}`;
+      const ordinal = (counts.get(identity) ?? 0) + 1;
+      counts.set(identity, ordinal);
+      current = { key: `${identity}\u0000${ordinal}`, lines: [line] };
+    } else current.lines.push(line);
+  }
+  if (current.lines.length || !blocks.length) blocks.push(current);
+  return blocks;
+}
+
+function mergeMarkdownBlock(
+  base: string[] | undefined,
+  target: string[] | undefined,
+  converted: string[] | undefined,
+): string[] | null {
+  if (!base) {
+    if (!target) return converted ? [...converted] : null;
+    if (!converted) return [...target];
+    if (same(target, converted)) return [...target];
+    throw new Error("same markdown block added twice");
+  }
+  if (!target) {
+    if (converted && !same(converted, base)) throw new Error("deleted markdown block edited");
+    return null;
+  }
+  if (!converted) {
+    if (!same(target, base)) throw new Error("source deleted edited markdown block");
+    return null;
+  }
+  if (same(target, base)) return [...converted];
+  if (same(converted, base)) return [...target];
+  if (same(target, converted)) return [...target];
+  const parts = diff3Merge(target, base, converted);
+  if (parts.some((part) => part.conflict)) throw new Error("overlapping markdown block");
+  return parts.flatMap((part) => part.ok ?? []);
+}
+
+/** Merge Markdown by independent preamble/heading blocks. This avoids treating
+ * a map-root body insertion and a Markdown child-heading insertion as one text
+ * conflict, while still rejecting edits to the same block or ambiguous renames.
+ */
+export function mergeMarkdownProjection(
+  baseText: string,
+  targetText: string,
+  convertedText: string,
+) {
+  const base = new Map(markdownBlocks(baseText).map((block) => [block.key, block.lines]));
+  const target = new Map(markdownBlocks(targetText).map((block) => [block.key, block.lines]));
+  const converted = new Map(markdownBlocks(convertedText).map((block) => [block.key, block.lines]));
+  const order = [
+    ...markdownBlocks(convertedText).map((block) => block.key),
+    ...markdownBlocks(targetText).map((block) => block.key),
+    ...markdownBlocks(baseText).map((block) => block.key),
+  ].filter((key, index, all) => all.indexOf(key) === index);
+  return order
+    .flatMap((key) => mergeMarkdownBlock(base.get(key), target.get(key), converted.get(key)) ?? [])
+    .join("");
+}
+
 /**
  * Merge a freshly converted projection into its existing companion using the
  * last successful conversion as a common base. A conflict is deliberately not
