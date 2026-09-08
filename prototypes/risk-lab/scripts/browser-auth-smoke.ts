@@ -64,6 +64,8 @@ try {
     await page.getByText("原文 / SOURCE").waitFor();
     const protectedSnapshot = await page.request.get(`${origin}/api/snapshot`);
     assert.equal(protectedSnapshot.ok(), true, "登录后 Cookie 未保护快照请求");
+    await page.getByRole("button", { name: "退出登录" }).click();
+    await page.getByRole("heading", { name: "第二大脑" }).waitFor();
     console.log(`浏览器认证 smoke 通过：${origin}`);
   } finally {
     await browser.close();

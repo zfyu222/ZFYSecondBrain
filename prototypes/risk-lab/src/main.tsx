@@ -233,6 +233,16 @@ function App() {
     setPassword("");
     setAuthenticated(true);
   }
+  async function logout() {
+    if (rowRef.current && hasUnsyncedChanges(rowRef.current)) {
+      const proceed = window.confirm(
+        "当前有尚未同步到服务器的内容。退出后仍会保留在本机，确定退出登录吗？",
+      );
+      if (!proceed) return;
+    }
+    await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+    setAuthenticated(false);
+  }
   useEffect(() => {
     if (!authenticated) return;
     if (typeof BroadcastChannel === "undefined") return;
@@ -1332,6 +1342,9 @@ function App() {
               onClick={() => void sync()}
             >
               {busy ? "处理中…" : "同步并检查外部变更"}
+            </button>
+            <button disabled={busy} onClick={() => void logout()}>
+              退出登录
             </button>
           </div>
         </header>
