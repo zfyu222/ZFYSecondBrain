@@ -14,6 +14,10 @@ try {
   await page.goto(`${origin}/`, { waitUntil: "networkidle" });
   assert.equal(await page.title(), "第二大脑 · 技术实验室");
   await page.getByText("原文 / SOURCE").waitFor();
+  await page.getByText("验证工具与原始文件").click();
+  await page
+    .getByRole("button", { name: "导出标准 Markdown" })
+    .waitFor();
   await page.getByRole("button", { name: "管理员与每日整理" }).click();
   await page.getByRole("heading", { name: "询问知识管理员" }).waitFor();
   const question = page.getByLabel("询问知识管理员");

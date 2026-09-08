@@ -38,6 +38,7 @@ import { parseOpml, serializeOpml, setMapTitle, topic } from "./core/formats";
 import { documentTitle } from "./core/document-title";
 import { mapFromMarkdown } from "./core/map-from-markdown";
 import { markdownFromMap } from "./core/markdown-from-map";
+import { standardMarkdown } from "./core/standard-markdown";
 import { dualViewChanges, readDualView, recordDualView } from "./core/dual-view";
 import {
   isFavorite,
@@ -1540,6 +1541,18 @@ function App() {
                     下载 {ext}
                   </button>
                 ))}
+              {hasMd && (
+                <button
+                  onClick={() =>
+                    download(
+                      `${title}.standard.md`,
+                      standardMarkdown(files[active + ".md"], active + ".md"),
+                    )
+                  }
+                >
+                  导出标准 Markdown
+                </button>
+              )}
               <button
                 onClick={() =>
                   download(
