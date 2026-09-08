@@ -40,6 +40,8 @@ import { mapFromMarkdown } from "./core/map-from-markdown";
 import { markdownFromMap } from "./core/markdown-from-map";
 import { standardMarkdown } from "./core/standard-markdown";
 import { dualViewChanges, readDualView, recordDualView } from "./core/dual-view";
+import { incrementalDualSync } from "./core/incremental-dual-view";
+import { validateFiles } from "./core/contracts";
 import {
   isFavorite,
   noteTags,
@@ -736,28 +738,50 @@ function App() {
     try {
       const markdown = filesRef.current[active + ".md"];
       const opml = filesRef.current[active + ".opml"];
-      let nextMarkdown = markdown;
-      let nextOpml = opml;
-      let changedView: Record<string, string>;
+      const state = readDualView(filesRef.current[active + ".note.yaml"] ?? "");
+      let nextMarkdown = markdown, nextOpml = opml;
+      let result;
 
       if (source === "markdown") {
-        nextOpml = serializeOpml(
-          mapFromMarkdown(documentTitle(filesRef.current, active), markdown),
-        );
-        changedView = { [active + ".opml"]: nextOpml };
+        result = incrementalDualSync({
+          state,
+          source: "markdown",
+          sourceCurrent: markdown,
+          targetCurrent: opml,
+          convert: () => serializeOpml(
+            mapFromMarkdown(documentTitle(filesRef.current, active), markdown),
+          ),
+          validateTarget: parseOpml,
+        });
+        if (result.kind === "synced") nextOpml = result.content;
       } else {
-        nextMarkdown = markdownFromMap(parseOpml(opml));
-        changedView = { [active + ".md"]: nextMarkdown };
+        result = incrementalDualSync({
+          state,
+          source: "opml",
+          sourceCurrent: opml,
+          targetCurrent: markdown,
+          convert: () => markdownFromMap(parseOpml(opml)),
+        });
+        if (result.kind === "synced") nextMarkdown = result.content;
+      }
+      if (result.kind === "baseline-required" || result.kind === "conflict")
+        throw new Error(result.message);
+      if (result.kind === "unchanged") {
+        setMessage("所选视图相对共同基线没有新增改动；另一视图保持不变");
+        return;
       }
 
-      update({
-        ...changedView,
-        [active + ".note.yaml"]: recordDualView(
-          nextMarkdown,
-          nextOpml,
-          new Date().toISOString(),
-        ),
+      const targetPath = source === "markdown" ? active + ".opml" : active + ".md";
+      const targetContent = source === "markdown" ? nextOpml : nextMarkdown;
+      const sidecar = recordDualView(nextMarkdown, nextOpml, new Date().toISOString());
+      // Keep OPML and relation endpoints one validation boundary before the UI
+      // is updated; a Markdown projection must never leave a dangling relation.
+      validateFiles({
+        ...filesRef.current,
+        [targetPath]: targetContent,
+        [active + ".note.yaml"]: sidecar,
       });
+      update({ [targetPath]: targetContent, [active + ".note.yaml"]: sidecar });
     } catch (error) {
       setError(String(error));
     }
@@ -797,12 +821,13 @@ function App() {
   let dualStatus = "";
   if (hasMd && hasMap) {
     try {
+      const baseline = readDualView(files[active + ".note.yaml"] ?? "");
       const changes = dualViewChanges(
-        readDualView(files[active + ".note.yaml"] ?? ""),
+        baseline,
         files[active + ".md"],
         files[active + ".opml"],
       );
-      dualStatus = !changes.known ? "双视图尚未建立共同版本" : !changes.markdown && !changes.opml ? "双视图已记录为一致" : `待同步：${changes.markdown ? "Markdown" : ""}${changes.markdown && changes.opml ? "、" : ""}${changes.opml ? "导图" : ""}`;
+      dualStatus = !changes.known ? "双视图尚未建立共同版本" : baseline?.version === 1 ? "旧版双视图记录：请记录一次基线以启用增量同步" : !changes.markdown && !changes.opml ? "双视图已记录为一致（可增量同步）" : `待增量同步：${changes.markdown ? "Markdown" : ""}${changes.markdown && changes.opml ? "、" : ""}${changes.opml ? "导图" : ""}`;
     } catch { dualStatus = "双视图记录无效，原文未修改"; }
   }
   const favoriteNotes = notes.filter((path) => {
@@ -1324,8 +1349,8 @@ function App() {
           {hasMd && hasMap && (
             <>
               <button disabled={offline || editingLocked} onClick={recordDualBaseline}>记录当前双视图基线</button>
-              <button disabled={offline || editingLocked} onClick={() => syncDualView("markdown")}>以 Markdown 为准同步</button>
-              <button disabled={offline || editingLocked} onClick={() => syncDualView("map")}>以导图为准同步</button>
+              <button disabled={offline || editingLocked} onClick={() => syncDualView("markdown")}>按 Markdown 增量同步</button>
+              <button disabled={offline || editingLocked} onClick={() => syncDualView("map")}>按导图增量同步</button>
             </>
           )}
           <span>独立编辑与保存 · 当前可手动选择同步来源</span>
