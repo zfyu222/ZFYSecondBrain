@@ -45,9 +45,10 @@ export function registerVaultApi(
       .header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   });
   app.addHook("onRequest", async (request, reply) => {
-    if (
-      !access.hosts.includes(request.headers.host ?? "")
-    )
+    const route = request.url.split("?")[0];
+    const loopbackHealth = route === "/api/health" &&
+      (request.ip === "127.0.0.1" || request.ip === "::1");
+    if (!loopbackHealth && !access.hosts.includes(request.headers.host ?? ""))
       return reply.code(403).send({ error: "仅允许本机原型访问" });
     const origin = request.headers.origin;
     if (
@@ -55,7 +56,6 @@ export function registerVaultApi(
       !access.origins.includes(origin)
     )
       return reply.code(403).send({ error: "拒绝跨站请求" });
-    const route = request.url.split("?")[0];
     if (
       auth.enabled &&
       route.startsWith("/api/") &&
