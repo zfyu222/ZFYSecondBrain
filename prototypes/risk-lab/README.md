@@ -22,6 +22,10 @@ pnpm preview:prototype
 
 访问 <http://127.0.0.1:4173/>。开发模式：`pnpm dev:prototype`（开发模式不保证离线打开）。不要把监听地址改为公网或挂真实知识库。
 
+## Compose 预演
+
+仓库根目录的 `compose.yaml` 使用持久宿主机目录保存 `raw`、`derived` 和 `state`，并只把应用端口发布到反向代理可访问的本机回环地址。部署前必须明确设置 `ZFY_PUBLIC_ORIGIN` 为无路径的 HTTPS Origin、`ZFY_AUTH_PASSWORD` 和绝对路径 `ZFY_DATA_DIR`；未设置会拒绝启动。Docker 容器本身不提供证书，实际服务器仍需由 HTTPS 反向代理终止 TLS。
+
 ## 可以体验
 
 1. 修改 Markdown，等待“已保存本机”，刷新检查。
