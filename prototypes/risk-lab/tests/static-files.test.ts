@@ -24,4 +24,15 @@ describe("generated local preview assets", () => {
     expect(response.headers["content-type"]).toContain("text/javascript");
     expect(response.body).toBe("export default 1;");
   });
+
+  it("returns a readable client error for malformed resource URLs", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "risk-lab-static-"));
+    roots.push(root);
+    const app = Fastify();
+    registerStaticFiles(app, root);
+    const response = await app.inject({ method: "GET", url: "/assets/%E0%A4%A" });
+    await app.close();
+    expect(response.statusCode).toBe(400);
+    expect(response.json().statusCode).toBe(400);
+  });
 });

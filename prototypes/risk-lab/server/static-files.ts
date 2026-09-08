@@ -17,8 +17,13 @@ const mime: Record<string, string> = {
 export function registerStaticFiles(app: FastifyInstance, dist: string) {
   app.get("/*", async (request, reply) => {
     const urlPath = new URL(request.url, "http://localhost").pathname;
-    const relative =
-      urlPath === "/" ? "index.html" : decodeURIComponent(urlPath).slice(1);
+    let relative: string;
+    try {
+      relative = urlPath === "/" ? "index.html" : decodeURIComponent(urlPath).slice(1);
+    } catch {
+      return reply.code(400).send({ error: "资源路径编码无效" });
+    }
+    if (relative.includes("\0")) return reply.code(400).send({ error: "资源路径无效" });
     const file = path.resolve(dist, relative);
     if (!file.startsWith(dist + path.sep)) return reply.code(403).send();
     try {
