@@ -34,6 +34,15 @@ try {
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: "登录" }).click();
   await page.getByText("原文 / SOURCE").waitFor();
+  if (process.env.ZFY_REMOTE_AI_SMOKE === "1") {
+    const question = process.env.ZFY_REMOTE_AI_QUESTION ?? "第二大脑";
+    await page.getByRole("button", { name: /管理员与每日整理/ }).click();
+    await page.getByLabel("询问知识管理员").fill(question);
+    await page.getByRole("button", { name: "获取带引用的回答" }).click();
+    await page.locator("article.manager-answer").waitFor({ timeout: 60_000 });
+    if (!(await page.locator("article.manager-answer code").count()))
+      throw new Error("远程 AI 回答缺少原文引用");
+  }
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
