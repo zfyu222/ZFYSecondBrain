@@ -19,6 +19,14 @@ pnpm dev
 pnpm verify:local
 ```
 
+发布前推荐直接运行：
+
+```text
+pnpm verify:release
+```
+
+它会在本地门禁完成后继续执行关键浏览器 smoke；密钥扫描仍需单独运行 gitleaks。
+
 提交前运行仓库级密钥扫描：
 
 ```text
