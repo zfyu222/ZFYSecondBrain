@@ -16,7 +16,11 @@ try {
   await page.getByText("原文 / SOURCE").waitFor();
   await page.getByRole("button", { name: "管理员与每日整理" }).click();
   await page.getByRole("heading", { name: "询问知识管理员" }).waitFor();
-  await page.getByRole("button", { name: "获取带引用的回答" }).waitFor();
+  const question = page.getByLabel("询问知识管理员");
+  await question.fill("本地服务");
+  const submit = page.getByRole("button", { name: "获取带引用的回答" });
+  await submit.waitFor();
+  assert.equal(await submit.isEnabled(), true, "已配置模型时提问按钮应可用");
   console.log(`浏览器 smoke 通过：${origin}`);
 } finally {
   await browser.close();

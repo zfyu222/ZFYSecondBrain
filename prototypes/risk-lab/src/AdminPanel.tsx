@@ -58,6 +58,7 @@ type ManagerAnswer = {
   sourceRevision: string;
   submittedAt: string;
 };
+type Health = { aiConfigured?: boolean };
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -102,16 +103,19 @@ export default function AdminPanel({
   const [knowledgeRevision, setKnowledgeRevision] = useState("");
   const [managerQuestion, setManagerQuestion] = useState("");
   const [managerAnswer, setManagerAnswer] = useState<ManagerAnswer | null>(null);
+  const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
 
   async function load() {
     if (offline) return;
-    const [nextReviews, nextMemory] = await Promise.all([
+    const [nextReviews, nextMemory, health] = await Promise.all([
       json<Review[]>("/api/manager/reviews"),
       json<MemoryState>("/api/memory"),
+      json<Health>("/api/health"),
     ]);
     setReviews(nextReviews);
     setMemory(nextMemory);
     setDraft(nextMemory.config);
+    setModelAvailable(health.aiConfigured ?? null);
     setError("");
   }
 
@@ -257,7 +261,11 @@ export default function AdminPanel({
             <div>
               <section className="knowledge-search">
                 <h2>询问知识管理员</h2>
-                <p>点击发送后才会将最多 8 篇相关原文发送给已配置的模型；不会自动写入知识库。</p>
+                <p>
+                  {modelAvailable === false
+                    ? "服务端尚未配置模型；不会发送原文或自动写入知识库。"
+                    : "点击发送后才会将最多 8 篇相关原文发送给已配置的模型；不会自动写入知识库。"}
+                </p>
                 <form onSubmit={(event) => void askManager(event)}>
                   <input
                     aria-label="询问知识管理员"
@@ -266,7 +274,7 @@ export default function AdminPanel({
                     placeholder="基于已同步资料提问"
                     maxLength={2000}
                   />
-                  <button className="primary" disabled={busy || !managerQuestion.trim()}>
+                  <button className="primary" disabled={busy || modelAvailable === false || !managerQuestion.trim()}>
                     获取带引用的回答
                   </button>
                 </form>
