@@ -77,6 +77,7 @@ try {
       true,
       `增量同步未完成：${pageText}`,
     );
+    await page.getByText("双视图增量同步完成 · 另一侧独立修改已保留").waitFor();
     await page.getByRole("button", { name: "思维导图", exact: true }).click();
     assert.equal(
       await page.getByLabel("节点正文").inputValue(),

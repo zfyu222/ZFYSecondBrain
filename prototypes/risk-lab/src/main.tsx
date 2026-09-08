@@ -262,7 +262,10 @@ function App() {
       cleanup?.();
     };
   }, []);
-  function update(changes: Record<string, string | undefined>) {
+  function update(
+    changes: Record<string, string | undefined>,
+    savedMessage = "已保存本机 · 待同步",
+  ) {
     const nextFiles = { ...filesRef.current };
     for (const [path, value] of Object.entries(changes)) {
       if (value === undefined) delete nextFiles[path];
@@ -281,7 +284,7 @@ function App() {
         );
         rowRef.current = saved;
         setRow(saved);
-        setMessage("已保存本机 · 待同步");
+        setMessage(savedMessage);
       })
       .catch((e) => {
         saveFailure.current = true;
@@ -797,7 +800,10 @@ function App() {
         [targetPath]: targetContent,
         [active + ".note.yaml"]: sidecar,
       });
-      update({ [targetPath]: targetContent, [active + ".note.yaml"]: sidecar });
+      update(
+        { [targetPath]: targetContent, [active + ".note.yaml"]: sidecar },
+        "双视图增量同步完成 · 另一侧独立修改已保留",
+      );
     } catch (error) {
       setError(String(error));
     }
