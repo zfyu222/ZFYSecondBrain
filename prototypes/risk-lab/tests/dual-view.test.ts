@@ -58,6 +58,9 @@ describe("portable dual-view baselines", () => {
     if (result.kind !== "synced") throw new Error("expected synced");
     expect(result.content).toContain("来自导图的新内容");
     expect(result.content).toContain("## 手工附注");
+    expect(result.content.indexOf("## 手工附注")).toBeGreaterThan(
+      result.content.indexOf("# Root"),
+    );
   });
 
   it("keeps an independently edited map node body while Markdown adds a child", () => {

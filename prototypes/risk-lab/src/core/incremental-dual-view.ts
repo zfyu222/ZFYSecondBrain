@@ -163,8 +163,8 @@ export function mergeMarkdownProjection(
   const target = new Map(markdownBlocks(targetText).map((block) => [block.key, block.lines]));
   const converted = new Map(markdownBlocks(convertedText).map((block) => [block.key, block.lines]));
   const order = [
-    ...markdownBlocks(convertedText).map((block) => block.key),
     ...markdownBlocks(targetText).map((block) => block.key),
+    ...markdownBlocks(convertedText).map((block) => block.key),
     ...markdownBlocks(baseText).map((block) => block.key),
   ].filter((key, index, all) => all.indexOf(key) === index);
   return order
