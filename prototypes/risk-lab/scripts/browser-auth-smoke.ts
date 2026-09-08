@@ -68,6 +68,12 @@ try {
       "# 退出保护验证\n\n本机草稿尚未同步。\n",
     );
     await page.getByText("已保存本机 · 待同步").waitFor();
+    const unloadGuard = await page.evaluate(() => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+    assert.equal(unloadGuard, true, "未同步草稿没有阻止 beforeunload");
     let warned = false;
     page.once("dialog", async (dialog) => {
       warned = dialog.message().includes("尚未同步");
