@@ -21,8 +21,11 @@ try {
   const manifest = await page.request.get(`${base}/manifest.webmanifest`);
   if (!manifest.ok() || (await manifest.json()).display !== "standalone")
     throw new Error("远程 PWA manifest 未生效");
+  if (!/manifest\+json|json/.test(manifest.headers()["content-type"] ?? ""))
+    throw new Error("远程 PWA manifest MIME 类型错误");
   const icon = await page.request.get(`${base}/icon.svg`);
-  if (!icon.ok()) throw new Error("远程 PWA 图标未生效");
+  if (!icon.ok() || !/image\/svg\+xml/.test(icon.headers()["content-type"] ?? ""))
+    throw new Error("远程 PWA 图标未生效");
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: "登录" }).click();
   await page.getByText("原文 / SOURCE").waitFor();
