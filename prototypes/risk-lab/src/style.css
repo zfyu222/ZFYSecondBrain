@@ -235,6 +235,12 @@ select:focus-visible {
   display: flex;
   justify-content: space-between;
 }
+.empty-state {
+  margin: 12px 10px;
+  color: #7b8973;
+  font-size: 12px;
+  line-height: 1.6;
+}
 nav {
   display: grid;
   gap: 6px;

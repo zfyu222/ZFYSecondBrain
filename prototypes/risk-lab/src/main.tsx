@@ -1167,6 +1167,12 @@ function App() {
         <div className="section-label">
           本机文档 <span>{visibleNotes.length}</span>
         </div>
+        {visibleNotes.length === 0 &&
+          (query.trim() || tagQuery.trim() || folderPrefix) && (
+            <p className="empty-state" role="status">
+              没有匹配的笔记，请调整搜索、标签或目录筛选。
+            </p>
+          )}
         <nav>
           {visibleNotes.map((n) => (
             <button
