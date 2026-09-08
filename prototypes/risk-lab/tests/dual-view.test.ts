@@ -124,4 +124,46 @@ describe("portable dual-view baselines", () => {
       convert: () => "<opml>new</opml>",
     }).kind).toBe("baseline-required");
   });
+
+  it("preserves a target-only node deletion while rejecting deletion of an edited node", () => {
+    const baseMap = {
+      title: "Root",
+      root: { text: "Root", body: "", type: "topic", attrs: {}, children: [
+        { text: "节点", body: "正文", type: "topic", attrs: {}, children: [] },
+      ] },
+    };
+    const base = serializeOpml(baseMap);
+    const state = readDualView(recordDualView("# Root\n", base, "2026-09-04T03:00:00.000Z"))!;
+    const deleted = structuredClone(baseMap);
+    deleted.root.children = [];
+    const sourceMap = structuredClone(baseMap);
+    sourceMap.root.body = "来源备注";
+    const safe = incrementalDualSync({
+      state,
+      source: "markdown",
+      sourceCurrent: "# Root\n\n来源备注\n",
+      targetCurrent: serializeOpml(deleted),
+      convert: () => serializeOpml(sourceMap),
+      validateTarget: parseOpml,
+      mergeStructured: mergeOpmlProjection,
+    });
+    expect(safe.kind).toBe("synced");
+    if (safe.kind !== "synced") throw new Error("expected synced");
+    expect(parseOpml(safe.content).root.children).toHaveLength(0);
+
+    const edited = structuredClone(baseMap);
+    edited.root.children[0].body = "导图备注";
+    const sourceDeleted = structuredClone(baseMap);
+    sourceDeleted.root.children = [];
+    const conflict = incrementalDualSync({
+      state,
+      source: "markdown",
+      sourceCurrent: "# Root\n\n来源删除节点\n",
+      targetCurrent: serializeOpml(edited),
+      convert: () => serializeOpml(sourceDeleted),
+      validateTarget: parseOpml,
+      mergeStructured: mergeOpmlProjection,
+    });
+    expect(conflict.kind).toBe("conflict");
+  });
 });
