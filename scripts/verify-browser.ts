@@ -2,6 +2,7 @@ import { execFile, spawn, spawnSync, type ChildProcess } from "node:child_proces
 
 const scripts = [
   "browser:smoke",
+  "browser:auth-smoke",
   "browser:offline-smoke",
   "browser:dual-view-smoke",
   "browser:tab-smoke",
