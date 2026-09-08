@@ -12,6 +12,7 @@
     "browser:smoke": "pnpm --filter @zfy/risk-lab browser:smoke",
     "browser:auth-smoke": "pnpm --filter @zfy/risk-lab browser:auth-smoke",
     "browser:offline-smoke": "pnpm --filter @zfy/risk-lab browser:offline-smoke",
-    "browser:sync-smoke": "pnpm --filter @zfy/risk-lab browser:sync-smoke"
+    "browser:sync-smoke": "pnpm --filter @zfy/risk-lab browser:sync-smoke",
+    "browser:conflict-smoke": "pnpm --filter @zfy/risk-lab browser:conflict-smoke"
   }
 }
