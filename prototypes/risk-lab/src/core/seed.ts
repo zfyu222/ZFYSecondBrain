@@ -9,7 +9,7 @@ export function sampleFiles(): Record<string, string> {
   const rows = flatten(map);
   return {
     "raw/Inbox/开始使用.md":
-      "# 第二大脑，先从一条笔记开始\n\n这是独立的技术原型，暂不接入 AI。\n\n## 今天想验证什么\n\n- [ ] 编辑 Markdown，刷新后仍然存在\n- [ ] 在导图里添加一个想法\n- [ ] 同步到本地测试服务\n\n> 两个视图独立保存，尚未启用 AI 语义同步。\n",
+      "# 第二大脑，先从一条笔记开始\n\n这是独立的技术原型。AI 功能只有在服务端明确配置后才会启用，默认不会发送原文。\n\n## 今天想验证什么\n\n- [ ] 编辑 Markdown，刷新后仍然存在\n- [ ] 在导图里添加一个想法\n- [ ] 同步到本地测试服务\n\n> 两个视图独立保存；AI 语义同步需在设置中显式启用。\n",
     "raw/Inbox/开始使用.opml": serializeOpml(map),
     "raw/Inbox/开始使用.relations.yaml": serializeRelations("开始使用.opml", [
       {
