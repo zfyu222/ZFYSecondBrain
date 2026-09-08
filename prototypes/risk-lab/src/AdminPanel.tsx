@@ -155,7 +155,9 @@ export default function AdminPanel({
   async function runNow() {
     setBusy(true);
     try {
-      await json("/api/memory/run", { method: "POST" });
+      const run = await json<{ id: string; status: "completed" | "awaiting-manager" }>("/api/memory/run", { method: "POST" });
+      if (run.status === "awaiting-manager")
+        await json(`/api/memory/runs/${run.id}/execute`, { method: "POST", body: JSON.stringify({}) });
       await load();
     } catch (reason) {
       setError(String(reason));

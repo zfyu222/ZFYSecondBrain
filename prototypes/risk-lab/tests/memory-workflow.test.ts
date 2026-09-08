@@ -148,7 +148,7 @@ describe("daily memory workflow", () => {
     const before = await store.snapshot();
     await service.configure(config);
     const run = await service.runManual();
-    expect(run.message).toContain("未修改知识库");
+    expect(run.message).toContain("等待已配置管理员处理");
     expect(await store.snapshot()).toEqual(before);
   });
 

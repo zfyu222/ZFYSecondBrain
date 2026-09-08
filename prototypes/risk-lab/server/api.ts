@@ -27,8 +27,13 @@ export function registerVaultApi(
   const managerAnswers = new ManagerAnswerService();
   const deepSeekManager = new DeepSeekManager();
   const memoryWorkflow = new MemoryWorkflowService(store);
+  const runDueMemory = async () => {
+    const run = await memoryWorkflow.runDue();
+    if (run?.status === "awaiting-manager")
+      await deepSeekManager.executeMemoryRun(run.id, memoryWorkflow, () => store.snapshot());
+  };
   const memoryTimer = setInterval(
-    () => void memoryWorkflow.runDue().catch((error) => void memoryWorkflow.recordFailure(error)),
+    () => void runDueMemory().catch((error) => void memoryWorkflow.recordFailure(error)),
     60_000,
   );
   memoryTimer.unref();
@@ -125,6 +130,9 @@ export function registerVaultApi(
     memoryWorkflow.configure(request.body),
   );
   app.post("/api/memory/run", () => memoryWorkflow.runManual());
+  app.post<{ Params: { id: string } }>("/api/memory/runs/:id/execute", (request) =>
+    deepSeekManager.executeMemoryRun(request.params.id, memoryWorkflow, () => store.snapshot()),
+  );
   app.post("/api/memory/summaries", (request) =>
     memoryWorkflow.applySummary(request.body),
   );

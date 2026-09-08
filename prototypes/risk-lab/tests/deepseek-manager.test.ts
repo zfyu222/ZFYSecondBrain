@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { DeepSeekManager, deepSeekConfigFromEnvironment } from "../server/deepseek-manager";
 import { ManagerAnswerService } from "../server/manager-answer";
+import { FileStore } from "../server/store";
+import { MemoryWorkflowService } from "../server/memory-workflow";
 
 const snapshot = {
   revision: "a".repeat(64),
@@ -42,5 +46,31 @@ describe("DeepSeek manager boundary", () => {
     expect(deepSeekConfigFromEnvironment({})).toEqual({
       apiKey: undefined, baseUrl: "https://api.deepseek.com", model: "deepseek-v4-flash",
     });
+  });
+
+  it("advances an authorized memory plan between model-owned summary and Inbox steps", async () => {
+    const parent = path.resolve(".prototype-data/tests");
+    await fs.mkdir(parent, { recursive: true });
+    const store = new FileStore(await fs.mkdtemp(path.join(parent, "deepseek-memory-")));
+    await store.init(false);
+    const content = "内容".repeat(300);
+    await store.commit({
+      requestId: "deepseek-memory-seed", expectedRevision: (await store.snapshot()).revision,
+      files: { "raw/Inbox/整理.md": content },
+    });
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ destination: "raw/Areas/资料/整理.md", tags: ["资料"], confidence: "high", rationale: "内容明确" }) } }] })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ layers: ["短", "内容".repeat(20)] }) } }] })));
+    const manager = new DeepSeekManager({ apiKey: "test-key", baseUrl: "https://model.example", model: "test-model" }, fetcher);
+    const workflow = new MemoryWorkflowService(store);
+    await workflow.configure({ enabled: true, localTime: "03:00", capabilities: { summaries: true, inbox: true, dualView: false } });
+    const run = await workflow.runManual();
+    const result = await manager.executeMemoryRun(run.id, workflow, () => store.snapshot());
+    expect(result.run.status).toBe("completed");
+    expect(result.completed).toEqual(["inbox:raw/Inbox/整理.md", "summaries:raw/Areas/资料/整理.md"]);
+    const after = await store.snapshot();
+    expect(after.files["derived/summaries/Areas/资料/整理.summary.yaml"]).toContain("source: ai");
+    expect(after.files["raw/Areas/资料/整理.md"]).toContain("内容");
+    expect(after.files["raw/Inbox/整理.md"]).toBeUndefined();
   });
 });

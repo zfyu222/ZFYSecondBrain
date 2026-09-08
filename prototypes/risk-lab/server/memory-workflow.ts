@@ -19,7 +19,7 @@ export const memoryConfigSchema = z
   .strict();
 export type MemoryConfig = z.infer<typeof memoryConfigSchema>;
 
-const candidateSchema = z
+export const candidateSchema = z
   .object({
     capability: z.enum(["summaries", "inbox", "dualView"]),
     path: z.string(),
@@ -35,10 +35,12 @@ const runSchema = z
     startedAt: z.string().datetime(),
     status: z.enum(["completed", "awaiting-manager"]),
     candidates: z.array(candidateSchema),
+    processed: z.array(z.string()).max(300).default([]),
     message: z.string(),
   })
   .strict();
 export type MemoryRun = z.infer<typeof runSchema>;
+export type MemoryCandidate = z.infer<typeof candidateSchema>;
 
 const summaryResultSchema = z
   .object({
@@ -240,6 +242,57 @@ export class MemoryWorkflowService {
   getState() {
     return this.exclusive(() => this.read());
   }
+  getRun(id: string) {
+    return this.exclusive(async () => {
+      const run = (await this.read()).runs.find((item) => item.id === id);
+      if (!run) throw new RejectedError("记忆整理运行记录不存在");
+      return run;
+    });
+  }
+  /** Records a manager-owned step and advances the expected server revision.
+   * A later external edit cannot be mistaken for this service's own commit. */
+  advanceRun(
+    runId: string,
+    candidate: MemoryCandidate,
+    revision: string,
+    message: string,
+    movedTo?: string,
+  ) {
+    return this.exclusive(async () => {
+      const state = await this.read();
+      const run = state.runs.find((item) => item.id === runId);
+      if (!run) throw new RejectedError("记忆整理运行记录不存在");
+      if (!run.candidates.some((item) => item.capability === candidate.capability && item.path === candidate.path))
+        throw new RejectedError("整理步骤不属于该次计划");
+      const key = `${candidate.capability}:${candidate.path}`;
+      if (run.processed.includes(key)) throw new RejectedError("该整理步骤已完成");
+      const processed = [...run.processed, key];
+      const completed = processed.length === run.candidates.length;
+      const candidates = movedTo
+        ? run.candidates.map((item) => {
+            if (`${item.capability}:${item.path}` === key) return item;
+            const oldStem = candidate.path.replace(/\.md$/, "");
+            const newStem = movedTo.replace(/\.md$/, "");
+            if (item.path === candidate.path) return { ...item, path: movedTo };
+            if (item.path === oldStem) return { ...item, path: newStem };
+            return item;
+          })
+        : run.candidates;
+      const nextRun: MemoryRun = {
+        ...run,
+        sourceRevision: revision,
+        candidates,
+        processed,
+        status: completed ? "completed" : "awaiting-manager",
+        message: completed ? "已完成本次已授权整理" : message,
+      };
+      await this.write(this.notify({
+        ...state,
+        runs: state.runs.map((item) => item.id === runId ? nextRun : item),
+      }, "info", message, runId));
+      return nextRun;
+    });
+  }
   configure(input: unknown) {
     return this.exclusive(async () => {
       const config = memoryConfigSchema.parse(input);
@@ -428,8 +481,9 @@ export class MemoryWorkflowService {
       startedAt: new Date().toISOString(),
       status: candidates.length ? "awaiting-manager" : "completed",
       candidates,
+      processed: [],
       message: candidates.length
-        ? "已按授权范围形成计划；未配置真实模型，未修改知识库"
+        ? "已按授权范围形成计划，等待已配置管理员处理"
         : "本次没有需要处理的已同步内容",
     };
     await this.write(this.notify({
