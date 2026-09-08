@@ -74,6 +74,19 @@ describe("local protocol boundary", () => {
     expect(health.json()).toMatchObject({ prototype: true, ai: false, aiConfigured: false });
     expect(JSON.stringify(health.json())).not.toContain("DEEPSEEK_API_KEY");
   });
+  it("allows only loopback health checks without weakening business API host checks", async () => {
+    const { app } = await fixture();
+    const health = await app.inject({
+      url: "/api/health",
+      headers: { host: "127.0.0.1:4173" },
+    });
+    expect(health.statusCode).toBe(200);
+    const snapshot = await app.inject({
+      url: "/api/snapshot",
+      headers: { host: "untrusted.example", "x-vault-protocol": "2" },
+    });
+    expect(snapshot.statusCode).toBe(403);
+  });
   it("rejects old or future writes without discarding binary originals", async () => {
     const { app, store, base } = await fixture();
     for (const protocolVersion of [undefined, 99]) {
