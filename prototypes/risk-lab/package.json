@@ -17,7 +17,8 @@
     "browser:sync-smoke": "tsx scripts/browser-sync-smoke.ts",
     "browser:conflict-smoke": "tsx scripts/browser-conflict-smoke.ts",
     "browser:move-smoke": "tsx scripts/browser-move-smoke.ts",
-    "browser:dual-view-smoke": "tsx scripts/browser-dual-view-smoke.ts"
+    "browser:dual-view-smoke": "tsx scripts/browser-dual-view-smoke.ts",
+    "browser:media-smoke": "tsx scripts/browser-media-smoke.ts"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.4",
