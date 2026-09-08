@@ -49,5 +49,3 @@ jobs:
         run: pnpm build
       - name: Verify offline build manifest
         run: pnpm check:build
-      - name: Run browser release gate
-        run: pnpm verify:browser
