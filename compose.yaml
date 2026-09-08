@@ -7,6 +7,10 @@ services:
       TZ: ${ZFY_TIMEZONE:-Asia/Shanghai}
       ZFY_PUBLIC_ORIGIN: ${ZFY_PUBLIC_ORIGIN:?Set the public HTTPS origin, for example https://notes.example.com}
       ZFY_AUTH_PASSWORD: ${ZFY_AUTH_PASSWORD:?Set a unique single-account password}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-flash}
+      DEEPSEEK_THINKING: ${DEEPSEEK_THINKING:-disabled}
     ports:
       - "127.0.0.1:4173:4173"
     volumes:
