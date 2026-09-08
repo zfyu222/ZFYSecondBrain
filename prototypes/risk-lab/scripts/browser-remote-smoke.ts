@@ -17,6 +17,12 @@ try {
     waitUntil: "domcontentloaded",
   });
   if (!response?.ok()) throw new Error(`远程首页返回 ${response?.status() ?? "未知状态"}`);
+  const base = origin.replace(/\/$/, "");
+  const manifest = await page.request.get(`${base}/manifest.webmanifest`);
+  if (!manifest.ok() || (await manifest.json()).display !== "standalone")
+    throw new Error("远程 PWA manifest 未生效");
+  const icon = await page.request.get(`${base}/icon.svg`);
+  if (!icon.ok()) throw new Error("远程 PWA 图标未生效");
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: "登录" }).click();
   await page.getByText("原文 / SOURCE").waitFor();
