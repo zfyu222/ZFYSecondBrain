@@ -962,7 +962,10 @@ h1 {
     display: block;
   }
   .sidebar {
-    padding: 14px;
+    padding: max(14px, env(safe-area-inset-top))
+      max(14px, env(safe-area-inset-right))
+      14px
+      max(14px, env(safe-area-inset-left));
     border-right: 0;
     border-bottom: 1px solid var(--line);
     gap: 10px;
@@ -993,7 +996,9 @@ h1 {
     padding: 7px;
   }
   main {
-    padding: 22px 14px;
+    padding: 22px max(14px, env(safe-area-inset-right))
+      max(22px, env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
   }
   .status-actions {
     align-items: flex-start;
@@ -1034,5 +1039,19 @@ h1 {
   }
   .tabs {
     margin-top: 8px;
+  }
+}
+
+/* Keep phone controls comfortable on touch devices without making the
+ * desktop mouse layout unnecessarily dense. */
+@media (pointer: coarse) {
+  button,
+  input,
+  select {
+    min-height: 44px;
+  }
+  .note button,
+  .folder-tree summary button {
+    min-height: 40px;
   }
 }
