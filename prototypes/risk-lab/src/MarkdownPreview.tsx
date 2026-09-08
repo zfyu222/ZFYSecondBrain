@@ -47,7 +47,7 @@ const previewSchema = {
     ],
     details: [
       ...(defaultSchema.attributes?.details ?? []),
-      ["className", "callout"],
+      ["className", "callout", "note-embed"],
       "dataCalloutType",
       "open",
     ],
@@ -125,6 +125,34 @@ export function MarkdownPreview({
         ]}
         skipHtml
         components={{
+          section: ({ children, node }) => {
+            const properties = node?.properties as Record<string, unknown> | undefined;
+            const classes = properties?.className;
+            const isEmbed =
+              (Array.isArray(classes) && classes.includes("note-embed")) ||
+              classes === "note-embed";
+            if (!isEmbed)
+              return (
+                <section
+                  className={
+                    typeof classes === "string"
+                      ? classes
+                      : Array.isArray(classes)
+                        ? classes.join(" ")
+                        : undefined
+                  }
+                >
+                  {children}
+                </section>
+              );
+            const path = properties?.dataEmbedPath;
+            return (
+              <details className="note-embed" open>
+                <summary>嵌入内容{typeof path === "string" ? `：${path}` : ""}</summary>
+                {children}
+              </details>
+            );
+          },
           a: ({ children, href, node }) => {
             // GFM footnote anchors refer to render-only, sanitized identifiers, not raw note IDs.
             if (
