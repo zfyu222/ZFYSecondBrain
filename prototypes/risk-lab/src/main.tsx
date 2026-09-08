@@ -930,6 +930,18 @@ function App() {
     setChoices({});
   }, [row?.conflict]);
   useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      const current = rowRef.current;
+      if (!current || (!hasUnsyncedChanges(current) && !saveFailure.current)) return;
+      event.preventDefault();
+      // Chromium requires a non-empty returnValue for the native confirmation
+      // dialog; the browser intentionally chooses the visible wording.
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, []);
+  useEffect(() => {
     if (!hasMd && !hasMap && notes.length) {
       setActive(notes[0]);
       setView(files[notes[0] + ".md"] !== undefined ? "markdown" : "map");
