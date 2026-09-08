@@ -14,6 +14,10 @@
     "browser:offline-smoke": "pnpm --filter @zfy/risk-lab browser:offline-smoke",
     "browser:sync-smoke": "pnpm --filter @zfy/risk-lab browser:sync-smoke",
     "browser:conflict-smoke": "pnpm --filter @zfy/risk-lab browser:conflict-smoke",
-    "browser:move-smoke": "pnpm --filter @zfy/risk-lab browser:move-smoke"
+    "browser:move-smoke": "pnpm --filter @zfy/risk-lab browser:move-smoke",
+    "browser:dual-view-smoke": "pnpm --filter @zfy/risk-lab browser:dual-view-smoke",
+    "browser:media-smoke": "pnpm --filter @zfy/risk-lab browser:media-smoke",
+    "browser:tab-smoke": "pnpm --filter @zfy/risk-lab browser:tab-smoke",
+    "browser:remote-smoke": "pnpm --filter @zfy/risk-lab browser:remote-smoke"
   }
 }
