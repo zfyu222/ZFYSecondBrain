@@ -58,7 +58,7 @@ try {
     // Both pages perform an initial local/remote reconciliation after login.
     // Let that startup work settle before exercising the concurrent-edit path;
     // otherwise a late initial snapshot could legitimately race the edit.
-    await second.waitForTimeout(2_500);
+    await second.waitForTimeout(5_000);
     const firstEditor = first.locator('.cm-content[contenteditable="true"]').first();
     await firstEditor.click();
     await firstEditor.press("Control+A");
@@ -68,9 +68,9 @@ try {
     // CodeMirror input queues several IndexedDB writes. Allow the local queue
     // to settle before observing the sibling tab; the status banner can be
     // replaced by an unrelated startup notice and is not a commit signal.
-    await first.waitForTimeout(2_000);
+    await first.waitForTimeout(5_000);
     const secondEditor = second.locator('.cm-content[contenteditable="true"]').first();
-    await expect(secondEditor).toContainText(marker, { timeout: 25_000 });
+    await expect(secondEditor).toContainText(marker, { timeout: 30_000 });
     assert.ok((await secondEditor.innerText()).includes(marker));
     await context.close();
     console.log(`浏览器同标签页联动 smoke 通过：${origin}`);

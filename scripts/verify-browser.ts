@@ -1,6 +1,11 @@
 import { execFile, spawn, spawnSync, type ChildProcess } from "node:child_process";
 
-const scripts = ["browser:smoke", "browser:dual-view-smoke", "browser:tab-smoke"];
+const scripts = [
+  "browser:smoke",
+  "browser:offline-smoke",
+  "browser:dual-view-smoke",
+  "browser:tab-smoke",
+];
 const origin = "http://127.0.0.1:4173";
 const invocation = (script: string) =>
   process.platform === "win32"
