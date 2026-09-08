@@ -68,7 +68,15 @@ try {
       buffer: Buffer.from("R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==", "base64"),
     });
     await page.getByText("附件和引用已保存本机 · 待同步").waitFor();
+    const attachmentReference = /!\[\[([^\]]+)/.exec(
+      await page.getByLabel("Markdown 编辑器").locator(".cm-content").innerText(),
+    )?.[1];
+    assert.ok(attachmentReference, "附件上传没有写入可读引用");
     await page.getByRole("button", { name: "为本文启用导图" }).click();
+    await page.getByLabel("引用路径").fill(attachmentReference);
+    const attachmentDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "打开引用" }).click();
+    assert.equal((await attachmentDownload).suggestedFilename(), "move.gif");
     await page.getByRole("button", { name: "记录当前双视图基线" }).waitFor();
     await page.getByRole("button", { name: "记录当前双视图基线" }).click();
     await page.getByRole("button", { name: "同步并检查外部变更" }).click();

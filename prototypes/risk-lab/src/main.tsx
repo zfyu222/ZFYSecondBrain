@@ -598,10 +598,16 @@ function App() {
   function openMapReference(target: string) {
     void import("./core/preview")
       .then(({ resolveNoteLink }) => {
+        const linkFiles = {
+          ...filesRef.current,
+          ...Object.fromEntries(
+            Object.keys(rowRef.current?.attachments ?? {}).map((path) => [path, ""]),
+          ),
+        };
         const resolved = resolveNoteLink(
           target,
           active + ".opml",
-          filesRef.current,
+          linkFiles,
         );
         if (resolved.kind === "note") {
           openLinkedNote(resolved.path, resolved.heading);
