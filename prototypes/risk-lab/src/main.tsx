@@ -141,7 +141,8 @@ function App() {
   const [offlineNotice, setOfflineNotice] = useState("");
   const [busy, setBusy] = useState(false),
     [offline, setOffline] = useState(false),
-    [query, setQuery] = useState("");
+    [query, setQuery] = useState(""),
+    [tagQuery, setTagQuery] = useState("");
   const [includeArchive, setIncludeArchive] = useState(false);
   const [space, setSpace] = useState<Space>("all");
   const [folderPrefix, setFolderPrefix] = useState("");
@@ -949,6 +950,17 @@ function App() {
       query,
       includeArchive,
     );
+  const matchesTag = (stem: string) => {
+    const wanted = tagQuery.trim().replace(/^#/, "").toLocaleLowerCase();
+    if (!wanted) return true;
+    try {
+      return noteTags(files[stem + ".md"] ?? "").some(
+        (tag) => tag.toLocaleLowerCase() === wanted,
+      );
+    } catch {
+      return false;
+    }
+  };
   const matchesCurrentFolder = (stem: string) =>
     appearsInFolder(stem, files[stem + ".md"], folderPrefix);
   const matchesSpace = (stem: string) =>
@@ -960,7 +972,19 @@ function App() {
   const visibleNotes = notes
     .filter(matchesSpace)
     .filter(matchesFolder)
-    .filter(matchesSearch);
+    .filter(matchesSearch)
+    .filter(matchesTag);
+  const availableTags = [
+    ...new Set(
+      notes.flatMap((stem) => {
+        try {
+          return noteTags(files[stem + ".md"] ?? "");
+        } catch {
+          return [];
+        }
+      }),
+    ),
+  ].sort((a, b) => a.localeCompare(b, "zh-CN"));
   const virtualFolders = notes.flatMap((stem) => {
     try {
       return softLinks(files[stem + ".md"] ?? "");
@@ -1086,6 +1110,19 @@ function App() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        <input
+          className="search"
+          aria-label="按标签筛选笔记"
+          placeholder="按标签筛选（可输入 #标签）"
+          list="available-tags"
+          value={tagQuery}
+          onChange={(e) => setTagQuery(e.target.value)}
+        />
+        <datalist id="available-tags">
+          {availableTags.map((tag) => (
+            <option key={tag} value={tag} />
+          ))}
+        </datalist>
         {query.trim() && (
           <label className="archive-search">
             <input
