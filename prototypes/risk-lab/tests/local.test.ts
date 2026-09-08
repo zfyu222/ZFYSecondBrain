@@ -16,6 +16,7 @@ import {
   restoreTrashEntry,
   saveFilesWithHistory,
   resolveConflicts,
+  requestSnapshot,
   synchronize,
 } from "../src/local";
 import { conflictOptions, mergeFiles } from "../src/core/merge";
@@ -41,6 +42,10 @@ afterEach(async () => {
   }
 });
 describe("local persistence and sync queue", () => {
+  it("surfaces an expired session without treating it as a service outage", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "需要登录" }), { status: 401 })));
+    await expect(requestSnapshot()).rejects.toThrow("登录已失效");
+  });
   it("persists notification entries and marks one as read", async () => {
     const db = await fixture();
     const first = await addNotification(

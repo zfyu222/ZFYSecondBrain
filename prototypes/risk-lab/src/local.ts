@@ -500,6 +500,7 @@ export async function requestSnapshot(): Promise<Snapshot> {
     headers: { "X-Vault-Protocol": "2" },
     signal: AbortSignal.timeout(8000),
   });
+  if (response.status === 401) throw new Error("登录已失效，请重新登录");
   if (!response.ok) throw new Error("测试服务不可用");
   return checkedSnapshot(await response.json());
 }

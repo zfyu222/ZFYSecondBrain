@@ -371,6 +371,8 @@ function App() {
       setError(String(e));
       setMessage("同步失败 · 本机数据保留");
       recordNotification("error", "同步失败：" + String(e));
+      if (String(e).includes("登录已失效") || String(e).includes("需要登录"))
+        setAuthenticated(false);
       if (!saveFailure.current) accept(await db.read());
     } finally {
       operationBusy.current = false;
