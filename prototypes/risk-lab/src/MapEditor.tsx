@@ -67,6 +67,7 @@ export default function MapEditor({
   const visible = rows.filter(
     (row) => ![...collapsed].some((p) => row.path.startsWith(p + "/")),
   );
+  const visiblePaths = new Set(visible.map((row) => row.path));
   const nodes = visible.map((r, index) => ({
     id: r.path,
     position: { x: r.depth * 245, y: index * 90 },
@@ -94,8 +95,8 @@ export default function MapEditor({
     }));
   for (const [index, relation] of parsed.relations.entries())
     if (
-      visible.some((r) => r.path === relation.from) &&
-      visible.some((r) => r.path === relation.to)
+      visiblePaths.has(relation.from) &&
+      visiblePaths.has(relation.to)
     )
       edges.push({
         id: "relation:" + index,
