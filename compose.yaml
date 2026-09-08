@@ -1,0 +1,14 @@
+services:
+  zfy-second-brain:
+    build:
+      context: .
+      dockerfile: prototypes/risk-lab/Dockerfile
+    environment:
+      TZ: ${ZFY_TIMEZONE:-Asia/Shanghai}
+      ZFY_PUBLIC_ORIGIN: ${ZFY_PUBLIC_ORIGIN:?Set the public HTTPS origin, for example https://notes.example.com}
+      ZFY_AUTH_PASSWORD: ${ZFY_AUTH_PASSWORD:?Set a unique single-account password}
+    ports:
+      - "127.0.0.1:4173:4173"
+    volumes:
+      - ${ZFY_DATA_DIR:?Set an absolute host directory for persistent knowledge data}:/app/prototypes/risk-lab/.prototype-data/server
+    restart: unless-stopped
