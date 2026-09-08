@@ -11,9 +11,22 @@ function headingText(value: string) {
  */
 export function markdownFromMap(map: Mindmap) {
   const syntheticMarkdownRoot = map.root.attrs.zfySource === "markdown";
-  const chunks = syntheticMarkdownRoot && map.root.attrs.zfyFrontMatter !== "true"
+  let originalFrontMatter = "";
+  if (syntheticMarkdownRoot && map.root.attrs.zfyFrontMatterRaw) {
+    try {
+      const binary = atob(map.root.attrs.zfyFrontMatterRaw);
+      originalFrontMatter = new TextDecoder().decode(
+        Uint8Array.from(binary, (unit) => unit.charCodeAt(0)),
+      );
+    } catch {
+      throw new Error("导图中的 Markdown 元数据编码无效");
+    }
+  }
+  const hasFrontMatter = map.root.attrs.zfyHasFrontMatter === "true" || map.root.attrs.zfyFrontMatter === "true";
+  if (originalFrontMatter) originalFrontMatter = originalFrontMatter.replace(/\r?\n$/, "");
+  const chunks = syntheticMarkdownRoot && !hasFrontMatter
     ? []
-    : [`---\ntitle: ${JSON.stringify(map.title)}\n---`];
+    : [originalFrontMatter || `---\ntitle: ${JSON.stringify(map.title)}\n---`];
   const render = (node: Topic, depth: number) => {
     const heading = "#".repeat(Math.min(depth, 6));
     chunks.push(`${heading} ${headingText(node.text)}`);
