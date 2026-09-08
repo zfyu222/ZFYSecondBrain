@@ -64,8 +64,18 @@ try {
     await page.getByText("原文 / SOURCE").waitFor();
     const protectedSnapshot = await page.request.get(`${origin}/api/snapshot`);
     assert.equal(protectedSnapshot.ok(), true, "登录后 Cookie 未保护快照请求");
+    await page.locator('.cm-content[contenteditable="true"]').first().fill(
+      "# 退出保护验证\n\n本机草稿尚未同步。\n",
+    );
+    await page.getByText("已保存本机 · 待同步").waitFor();
+    let warned = false;
+    page.once("dialog", async (dialog) => {
+      warned = dialog.message().includes("尚未同步");
+      await dialog.accept();
+    });
     await page.getByRole("button", { name: "退出登录" }).click();
     await page.getByRole("heading", { name: "第二大脑" }).waitFor();
+    assert.equal(warned, true, "未同步草稿退出时没有出现保护提示");
     console.log(`浏览器认证 smoke 通过：${origin}`);
   } finally {
     await browser.close();
