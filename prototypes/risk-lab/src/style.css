@@ -665,6 +665,13 @@ h1 {
 .attachment-media audio {
   max-width: 100%;
 }
+.attachment-media .attachment-pdf {
+  width: min(100%, 760px);
+  height: min(70vh, 620px);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+}
 .markdown-reading .embed-unavailable {
   color: #806b47;
   overflow-wrap: anywhere;
