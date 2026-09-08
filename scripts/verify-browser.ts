@@ -4,6 +4,10 @@ const scripts = [
   "browser:smoke",
   "browser:auth-smoke",
   "browser:offline-smoke",
+  "browser:sync-smoke",
+  "browser:conflict-smoke",
+  "browser:move-smoke",
+  "browser:media-smoke",
   "browser:dual-view-smoke",
   "browser:tab-smoke",
 ];
