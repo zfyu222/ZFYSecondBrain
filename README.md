@@ -33,6 +33,7 @@ pnpm preview:prototype
 - [技术验证与开发里程碑](docs/architecture/validation-and-milestones.md)
 - [M0 原型格式与接口契约](docs/architecture/prototype-contracts.md)
 - [M0 原型验证记录与剩余门槛](docs/architecture/prototype-validation.md)
+- [首版执行计划表](docs/development/first-release-plan.md)
 - [初始需求草图](docs/requirements/initial-idea.md)
 - [知识组织方式](docs/requirements/knowledge-organization.md)
 - [笔记双视图](docs/requirements/dual-view-notes.md)
