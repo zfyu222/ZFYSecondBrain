@@ -55,9 +55,15 @@ try {
     const context = await browser.newContext();
     const first = await openApp(context);
     const second = await openApp(context);
+    // Both pages perform an initial local/remote reconciliation after login.
+    // Let that startup work settle before exercising the concurrent-edit path;
+    // otherwise a late initial snapshot could legitimately race the edit.
+    await second.waitForTimeout(2_500);
     const firstEditor = first.locator('.cm-content[contenteditable="true"]').first();
     await firstEditor.click();
-    await firstEditor.fill(`# ${marker}\n\n标签页之间的本地版本广播。\n`);
+    await firstEditor.press("Control+A");
+    await first.keyboard.insertText(`# ${marker}\n\n标签页之间的本地版本广播。\n`);
+    await firstEditor.press("Tab");
     await expect(firstEditor).toContainText(marker);
     // CodeMirror input queues several IndexedDB writes. Allow the local queue
     // to settle before observing the sibling tab; the status banner can be
