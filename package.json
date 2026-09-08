@@ -8,6 +8,7 @@
     "check:build": "pnpm --filter @zfy/risk-lab check:build",
     "verify:local": "tsx scripts/verify-local.ts",
     "verify:browser": "tsx scripts/verify-browser.ts",
+    "verify:release": "tsx scripts/verify-release.ts",
     "test": "pnpm --filter @zfy/risk-lab test",
     "typecheck": "pnpm --filter @zfy/risk-lab typecheck",
     "preview:prototype": "pnpm --filter @zfy/risk-lab start",
