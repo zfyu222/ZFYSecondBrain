@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { chromium } from "@playwright/test";
 
 const origin = process.env.ZFY_BROWSER_SMOKE_ORIGIN ?? "http://127.0.0.1:4173";
@@ -15,9 +16,15 @@ try {
   assert.equal(await page.title(), "第二大脑 · 技术实验室");
   await page.getByText("原文 / SOURCE").waitFor();
   await page.getByText("验证工具与原始文件").click();
-  await page
-    .getByRole("button", { name: "导出标准 Markdown" })
-    .waitFor();
+  const exportButton = page.getByRole("button", { name: "导出标准 Markdown" });
+  await exportButton.waitFor();
+  const download = page.waitForEvent("download");
+  await exportButton.click();
+  const exported = await download;
+  assert.match(exported.suggestedFilename(), /\.standard\.md$/);
+  const exportedPath = await exported.path();
+  assert.ok(exportedPath, "浏览器没有生成标准 Markdown 文件");
+  assert.notEqual((await readFile(exportedPath, "utf8")).trim(), "");
   await page.getByRole("button", { name: "管理员与每日整理" }).click();
   await page.getByRole("heading", { name: "询问知识管理员" }).waitFor();
   const question = page.getByLabel("询问知识管理员");
