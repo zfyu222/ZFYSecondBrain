@@ -38,6 +38,12 @@ export function registerVaultApi(
   );
   memoryTimer.unref();
   app.addHook("onClose", () => clearInterval(memoryTimer));
+  app.addHook("onSend", async (_request, reply) => {
+    reply
+      .header("X-Content-Type-Options", "nosniff")
+      .header("Referrer-Policy", "no-referrer")
+      .header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  });
   app.addHook("onRequest", async (request, reply) => {
     if (
       !access.hosts.includes(request.headers.host ?? "")

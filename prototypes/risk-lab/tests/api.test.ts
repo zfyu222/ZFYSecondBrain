@@ -47,6 +47,9 @@ describe("local protocol boundary", () => {
     expect(current.statusCode).toBe(200);
     expect(current.json()).toEqual(base);
     expect(current.headers["cache-control"]).toBe("no-store");
+    expect(current.headers["x-content-type-options"]).toBe("nosniff");
+    expect(current.headers["referrer-policy"]).toBe("no-referrer");
+    expect(current.headers["permissions-policy"]).toContain("microphone=()");
   });
   it("reports only whether a model key is configured, never the credential", async () => {
     const { app } = await fixture();
