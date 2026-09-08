@@ -38,6 +38,7 @@ async function openApp(context: BrowserContext) {
     await page.getByRole("button", { name: "登录" }).click();
   }
   await page.getByText("原文 / SOURCE").waitFor();
+  await expect(page.locator("fieldset.editing-area")).toBeEnabled();
   await expect(page.locator('.cm-content[contenteditable="true"]').first()).toBeVisible();
   return page;
 }
@@ -55,7 +56,9 @@ try {
     const first = await openApp(context);
     const second = await openApp(context);
     const firstEditor = first.locator('.cm-content[contenteditable="true"]').first();
-    await firstEditor.fill(`# ${marker}\n\n标签页之间的本地版本广播。\n`);
+    await firstEditor.click();
+    await firstEditor.press("Control+A");
+    await first.keyboard.insertText(`# ${marker}\n\n标签页之间的本地版本广播。\n`);
     await expect(firstEditor).toContainText(marker);
     const secondEditor = second.locator('.cm-content[contenteditable="true"]').first();
     await expect(secondEditor).toContainText(marker, { timeout: 12_000 });

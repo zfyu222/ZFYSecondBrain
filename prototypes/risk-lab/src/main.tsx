@@ -182,14 +182,15 @@ function App() {
   const operationBusy = useRef(false);
   const emergencyImport = useRef<HTMLInputElement>(null);
   const tabChannel = useRef<BroadcastChannel | null>(null);
-  function accept(next: LocalState) {
+  function accept(next: LocalState, broadcast = true) {
     const previousVersion = rowRef.current?.version;
     rowRef.current = next;
     setRow(next);
     filesRef.current = next.files;
     setFiles(next.files);
-    if (next.version !== previousVersion)
+    if (broadcast && next.version !== previousVersion) {
       tabChannel.current?.postMessage({ version: next.version });
+    }
   }
   function recordNotification(
     level: NotificationEntry["level"],
@@ -201,17 +202,17 @@ function App() {
       )
       .catch((error) => setError(String(error)));
   }
-  async function reload() {
+  async function reload(broadcast = true, syncOnLoad = true) {
     if (saveFailure.current)
       download(
         "重新载入前草稿.json",
         JSON.stringify(filesRef.current, null, 2),
       );
-    accept(await db.read());
+    accept(await db.read(), broadcast);
     rememberOpened(active);
     saveFailure.current = false;
     setError("");
-    if (!offline && navigator.onLine) {
+    if (syncOnLoad && !offline && navigator.onLine) {
       setMessage("已载入本机数据 · 正在自动同步…");
       void sync();
     } else {
@@ -259,8 +260,9 @@ function App() {
     tabChannel.current = channel;
     channel.onmessage = (event: MessageEvent<{ version?: unknown }>) => {
       const version = event.data?.version;
-      if (typeof version === "number" && version > (rowRef.current?.version ?? -1))
-        void reload().catch((error) => setError(String(error)));
+      if (typeof version === "number" && version > (rowRef.current?.version ?? -1)) {
+        void reload(false, false).catch((error) => setError(String(error)));
+      }
     };
     return () => {
       channel.close();
@@ -269,7 +271,17 @@ function App() {
   }, [authenticated]);
   useEffect(() => {
     if (!authenticated) return;
-    void reload().catch((e) => setError(String(e)));
+    void reload(true, true).catch((e) => setError(String(e)));
+  }, [authenticated]);
+  useEffect(() => {
+    if (!authenticated) return;
+    const timer = window.setInterval(() => {
+      void db.read().then((latest) => {
+        if (latest.version > (rowRef.current?.version ?? -1))
+          return reload(false, false);
+      }).catch((error) => setError(String(error)));
+    }, 1500);
+    return () => window.clearInterval(timer);
   }, [authenticated]);
   useEffect(() => {
     if (!authenticated) return;
@@ -324,8 +336,7 @@ function App() {
           rowRef.current.version,
           nextFiles,
         );
-        rowRef.current = saved;
-        setRow(saved);
+        accept(saved);
         setMessage(savedMessage);
       })
       .catch((e) => {
@@ -369,6 +380,11 @@ function App() {
             : "已同步本地测试服务",
       );
     } catch (e) {
+      if (String(e).includes("另一个标签页已修改本机数据")) {
+        if (!saveFailure.current) accept(await db.read(), false);
+        setMessage("已载入其他标签页的本机修改");
+        return;
+      }
       setError(String(e));
       setMessage("同步失败 · 本机数据保留");
       recordNotification("error", "同步失败：" + String(e));
