@@ -986,6 +986,21 @@ h1 {
   main {
     padding: 22px 14px;
   }
+  .status-actions {
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tag-entry,
+  .soft-link-entry {
+    max-width: 100%;
+  }
+  .tag-entry input,
+  .soft-link-entry input {
+    min-width: 0;
+    width: min(150px, 45vw);
+  }
   .conflict-grid {
     grid-template-columns: 1fr;
   }

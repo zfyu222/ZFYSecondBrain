@@ -32,6 +32,21 @@ try {
   const submit = page.getByRole("button", { name: "获取带引用的回答" });
   await submit.waitFor();
   assert.equal(await submit.isEnabled(), true, "已配置模型时提问按钮应可用");
+
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mobile.goto(`${origin}/`, { waitUntil: "networkidle" });
+  await mobile.getByText("原文 / SOURCE").waitFor();
+  await mobile
+    .getByRole("button", { name: "同步并检查外部变更" })
+    .waitFor();
+  assert.equal(
+    await mobile.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+    true,
+    "390px 窄屏出现整页横向溢出",
+  );
+  await mobile.close();
   console.log(`浏览器 smoke 通过：${origin}`);
 } finally {
   await browser.close();
