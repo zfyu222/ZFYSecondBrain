@@ -846,9 +846,12 @@ function App() {
         [targetPath]: targetContent,
         [active + ".note.yaml"]: sidecar,
       });
+      const direction = source === "markdown" ? "Markdown → 导图" : "导图 → Markdown";
       update(
         { [targetPath]: targetContent, [active + ".note.yaml"]: sidecar },
-        "双视图增量同步完成 · 另一侧独立修改已保留",
+        result.changed
+          ? `双视图增量同步完成（${direction}）· 另一侧独立修改已保留`
+          : `双视图基线已更新（${direction}）· 目标视图无需改写`,
       );
     } catch (error) {
       setError(String(error));
