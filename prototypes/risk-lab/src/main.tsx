@@ -59,6 +59,7 @@ import {
 import { matchesNoteSearch, matchesTagFilter } from "./core/search";
 import { isTemplateStem, templateName } from "./core/templates";
 import { appearsInFolder, folderTree, type FolderNode } from "./core/folders";
+import { describeStorageError } from "./core/storage-errors";
 import "./style.css";
 
 const MapEditor = lazy(() => import("./MapEditor"));
@@ -341,7 +342,7 @@ function App() {
       })
       .catch((e) => {
         saveFailure.current = true;
-        setError(String(e));
+        setError(describeStorageError(e));
         setMessage("本机保存失败 · 请导出草稿");
       });
   }
