@@ -8,6 +8,11 @@ import { registerStaticFiles } from "./static-files";
 import { accessControlFromEnvironment } from "./access-control";
 
 const appRoot = fileURLToPath(new URL("..", import.meta.url));
+try {
+  process.loadEnvFile(path.join(appRoot, ".env"));
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+}
 const store = new FileStore(path.join(appRoot, ".prototype-data", "server"));
 const app = Fastify({ logger: false, bodyLimit: 12_000_000 });
 const access = accessControlFromEnvironment();

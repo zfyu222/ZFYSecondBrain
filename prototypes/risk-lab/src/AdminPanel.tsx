@@ -51,6 +51,12 @@ type KnowledgeSearch = {
   sourceRevision: string;
   result: { command: "search"; matches: KnowledgeMatch[] };
 };
+type ManagerAnswer = {
+  answer: string;
+  citations: { path: string; quote: string }[];
+  sourceRevision: string;
+  submittedAt: string;
+};
 
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -93,6 +99,8 @@ export default function AdminPanel({
   const [knowledgeQuery, setKnowledgeQuery] = useState("");
   const [knowledgeMatches, setKnowledgeMatches] = useState<KnowledgeMatch[] | null>(null);
   const [knowledgeRevision, setKnowledgeRevision] = useState("");
+  const [managerQuestion, setManagerQuestion] = useState("");
+  const [managerAnswer, setManagerAnswer] = useState<ManagerAnswer | null>(null);
 
   async function load() {
     if (offline) return;
@@ -207,6 +215,23 @@ export default function AdminPanel({
       setBusy(false);
     }
   }
+  async function askManager(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const question = managerQuestion.trim();
+    if (!question) return;
+    setBusy(true);
+    try {
+      const answer = await json<ManagerAnswer>("/api/manager/ask", {
+        method: "POST", body: JSON.stringify({ question }),
+      });
+      setManagerAnswer(answer);
+      setError("");
+    } catch (reason) {
+      setError(String(reason));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const latest = memory?.runs.at(-1);
   return (
@@ -222,11 +247,38 @@ export default function AdminPanel({
       {open && (
         <div className="admin-content">
           <p className="admin-boundary">
-            当前未连接真实模型。管理员提议必须先审阅，应用时会再次检查整个知识库版本。
+            问答仅发送检索命中的已同步非归档原文给已配置模型；回答必须逐字引用原文。管理员提议必须先审阅，应用时会再次检查整个知识库版本。
           </p>
           {error && <p className="notice error">{error}</p>}
           <div className="admin-grid">
             <div>
+              <section className="knowledge-search">
+                <h2>询问知识管理员</h2>
+                <p>点击发送后才会将最多 8 篇相关原文发送给已配置的模型；不会自动写入知识库。</p>
+                <form onSubmit={(event) => void askManager(event)}>
+                  <input
+                    aria-label="询问知识管理员"
+                    value={managerQuestion}
+                    onChange={(event) => setManagerQuestion(event.target.value)}
+                    placeholder="基于已同步资料提问"
+                    maxLength={2000}
+                  />
+                  <button className="primary" disabled={busy || !managerQuestion.trim()}>
+                    获取带引用的回答
+                  </button>
+                </form>
+                {managerAnswer && (
+                  <article className="review-card manager-answer">
+                    <p>{managerAnswer.answer}</p>
+                    <p>来源版本 {managerAnswer.sourceRevision.slice(0, 10)}</p>
+                    <ul>
+                      {managerAnswer.citations.map((citation, index) => (
+                        <li key={`${citation.path}-${index}`}><code>{citation.path}</code>：{citation.quote}</li>
+                      ))}
+                    </ul>
+                  </article>
+                )}
+              </section>
               <section className="knowledge-search">
                 <h2>本地资料检索</h2>
                 <p>只检索当前已同步的非归档 Markdown；结果是原文证据，不由原型伪造 AI 回答。</p>

@@ -1085,7 +1085,7 @@ function App() {
         <div className="sidebar-footer">
           <span className="dot" /> 原始文件，不锁在应用里
           <p>Markdown · OPML · YAML</p>
-          <small>仅测试数据 · 暂未接入 AI</small>
+          <small>仅测试数据 · AI 问答按需调用</small>
         </div>
       </aside>
       <main>

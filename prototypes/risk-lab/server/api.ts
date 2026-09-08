@@ -6,6 +6,7 @@ import { ManagerReviewService } from "./manager-review";
 import { MemoryWorkflowService } from "./memory-workflow";
 import { executeCilRequest, validateCilRequest } from "../src/core/cil";
 import { ManagerAnswerService } from "./manager-answer";
+import { DeepSeekManager } from "./deepseek-manager";
 import { SingleAccountAuth } from "./auth";
 import type { AccessControl } from "./access-control";
 
@@ -24,6 +25,7 @@ export function registerVaultApi(
 ) {
   const managerReviews = new ManagerReviewService(store);
   const managerAnswers = new ManagerAnswerService();
+  const deepSeekManager = new DeepSeekManager();
   const memoryWorkflow = new MemoryWorkflowService(store);
   const memoryTimer = setInterval(
     () => void memoryWorkflow.runDue().catch((error) => void memoryWorkflow.recordFailure(error)),
@@ -110,6 +112,9 @@ export function registerVaultApi(
   });
   app.post("/api/manager/answers", async (request) =>
     managerAnswers.submit(request.body, await store.snapshot()),
+  );
+  app.post("/api/manager/ask", async (request) =>
+    deepSeekManager.ask(request.body, await store.snapshot(), managerAnswers),
   );
   app.post<{ Params: { id: string } }>(
     "/api/manager/reviews/:id/decision",
