@@ -240,7 +240,9 @@ function assertNoUnknownReferences(
   if (typeof value === "string") {
     const pathLike =
       /^(?:\.{1,2}\/|raw\/|derived\/)/.test(value) ||
-      /\.[a-z0-9]{1,12}(?:[?#].*)?$/i.test(value);
+      // Extensions start with a letter. Requiring that avoids treating an ISO
+      // timestamp such as `2026-09-08T11:41:41.834Z` as a relative file path.
+      /\.[a-z][a-z0-9]{0,11}(?:[?#].*)?$/i.test(value);
     if (
       (pathLike && rewriteTarget(value, owner, destination, moves) !== value) ||
       rewriteMarkdown(value, owner, destination, moves, false) !== value
@@ -355,7 +357,11 @@ export function movePath(
       assertNoUnknownReferences(map.attributes, path, destination, moves);
       for (const { node } of flatten(map)) {
         for (const [name, value] of Object.entries(node.attrs))
-          if (!["url", "htmlUrl", "xmlUrl"].includes(name))
+          // zfyBody is the portable body attribute parsed into node.body below.
+          // It is a supported Markdown-bearing field, not an unknown structured
+          // reference; applying the conservative guard here would reject valid
+          // attachment links before the normal body rewrite can update them.
+          if (!["url", "htmlUrl", "xmlUrl", "zfyBody"].includes(name))
             assertNoUnknownReferences(value, path, destination, moves);
         const body = rewriteMarkdown(node.body, path, destination, moves);
         if (body !== node.body) {

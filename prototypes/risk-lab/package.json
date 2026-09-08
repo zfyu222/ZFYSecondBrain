@@ -15,7 +15,8 @@
     "browser:auth-smoke": "tsx scripts/browser-auth-smoke.ts",
     "browser:offline-smoke": "tsx scripts/browser-offline-smoke.ts",
     "browser:sync-smoke": "tsx scripts/browser-sync-smoke.ts",
-    "browser:conflict-smoke": "tsx scripts/browser-conflict-smoke.ts"
+    "browser:conflict-smoke": "tsx scripts/browser-conflict-smoke.ts",
+    "browser:move-smoke": "tsx scripts/browser-move-smoke.ts"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.4",
