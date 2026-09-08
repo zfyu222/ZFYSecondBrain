@@ -22,6 +22,8 @@ pnpm preview:prototype
 
 访问 <http://127.0.0.1:4173/>。开发模式：`pnpm dev:prototype`（开发模式不保证离线打开）。不要把监听地址改为公网或挂真实知识库。
 
+服务启动后可执行 `pnpm browser:smoke`：它使用独立无痕 Chrome 上下文，只读检查健康接口、原文编辑区和管理员入口；不会发送模型请求、写入知识库或复用日常浏览器的数据。
+
 若要启用真实管理员问答，复制 `.env.example` 为本机未跟踪的 `.env`，填入 `DEEPSEEK_API_KEY`；可选配置 `DEEPSEEK_BASE_URL` 与 `DEEPSEEK_MODEL`。密钥只由服务端读取，前端不会接触。模型调用只在用户点击“获取带引用的回答”后发生；最多发送 8 篇检索命中的非归档 Markdown，找不到本机证据时不会调用模型，也不会自动写入知识库。
 
 ## Compose 预演

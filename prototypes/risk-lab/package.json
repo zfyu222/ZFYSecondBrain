@@ -10,7 +10,8 @@
     "check:build": "tsx tests/check-build.ts",
     "cil": "tsx server/cil-cli.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "browser:smoke": "tsx scripts/browser-smoke.ts"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.4",
@@ -43,6 +44,7 @@
     "zod": "^4.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/mdast": "4.0.4",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
