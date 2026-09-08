@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dualViewChanges, readDualView, recordDualView } from "../src/core/dual-view";
-import { incrementalDualSync } from "../src/core/incremental-dual-view";
+import { incrementalDualSync, mergeOpmlProjection } from "../src/core/incremental-dual-view";
 import { mapFromMarkdown } from "../src/core/map-from-markdown";
 import { markdownFromMap } from "../src/core/markdown-from-map";
 import { parseOpml, serializeOpml } from "../src/core/formats";
@@ -54,6 +54,29 @@ describe("portable dual-view baselines", () => {
     if (result.kind !== "synced") throw new Error("expected synced");
     expect(result.content).toContain("来自导图的新内容");
     expect(result.content).toContain("## 手工附注");
+  });
+
+  it("keeps an independently edited map node body while Markdown adds a child", () => {
+    const markdown = "# Root\n\n初始正文\n";
+    const opml = serializeOpml(mapFromMarkdown("笔记", markdown));
+    const state = readDualView(recordDualView(markdown, opml, "2026-09-04T03:00:00.000Z"))!;
+    const manuallyEdited = parseOpml(opml);
+    manuallyEdited.root.body = "导图独立备注";
+    const sourceCurrent = "# Root\n\n初始正文\n\n## 增量节点\n\n增量内容\n";
+    const result = incrementalDualSync({
+      state,
+      source: "markdown",
+      sourceCurrent,
+      targetCurrent: serializeOpml(manuallyEdited),
+      convert: () => serializeOpml(mapFromMarkdown("笔记", sourceCurrent)),
+      validateTarget: parseOpml,
+      mergeStructured: mergeOpmlProjection,
+    });
+    expect(result).toMatchObject({ kind: "synced" });
+    if (result.kind !== "synced") throw new Error("expected synced");
+    const merged = parseOpml(result.content);
+    expect(merged.root.body).toBe("导图独立备注");
+    expect(merged.root.children[0].children[0].text).toBe("增量节点");
   });
 
   it("refuses overlapping edits and legacy baselines with a changed target", () => {

@@ -40,7 +40,7 @@ import { mapFromMarkdown } from "./core/map-from-markdown";
 import { markdownFromMap } from "./core/markdown-from-map";
 import { standardMarkdown } from "./core/standard-markdown";
 import { dualViewChanges, readDualView, recordDualView } from "./core/dual-view";
-import { incrementalDualSync } from "./core/incremental-dual-view";
+import { incrementalDualSync, mergeOpmlProjection } from "./core/incremental-dual-view";
 import { validateFiles } from "./core/contracts";
 import {
   isFavorite,
@@ -761,6 +761,7 @@ function App() {
             mapFromMarkdown(documentTitle(filesRef.current, active), markdown),
           ),
           validateTarget: parseOpml,
+          mergeStructured: mergeOpmlProjection,
         });
         if (result.kind === "synced") nextOpml = result.content;
       } else {
