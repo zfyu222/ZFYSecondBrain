@@ -11,6 +11,10 @@ try {
   const status = await health.json() as { prototype?: unknown; protocolVersion?: unknown };
   assert.equal(status.prototype, true, "目标不是隔离原型服务");
   assert.equal(status.protocolVersion, 2, "原型协议版本不匹配");
+  const manifest = await page.request.get(`${origin}/manifest.webmanifest`);
+  assert.equal(manifest.ok(), true, "PWA manifest 未加载");
+  assert.match(manifest.headers()["content-type"] ?? "", /manifest\+json|json/);
+  assert.equal((await manifest.json()).display, "standalone");
 
   await page.goto(`${origin}/`, { waitUntil: "networkidle" });
   assert.equal(await page.title(), "第二大脑 · 技术实验室");
