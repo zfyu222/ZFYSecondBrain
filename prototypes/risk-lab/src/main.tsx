@@ -1627,7 +1627,11 @@ function App() {
           </section>
         )}
         <Suspense fallback={<p className="notice">正在加载管理员界面…</p>}>
-          <AdminPanel offline={offline || !navigator.onLine} onVaultChanged={() => void sync()} />
+          <AdminPanel
+            offline={offline || !navigator.onLine}
+            onVaultChanged={() => void sync()}
+            onSessionExpired={() => setAuthenticated(false)}
+          />
         </Suspense>
         <footer className="lab-tools">
           <details>

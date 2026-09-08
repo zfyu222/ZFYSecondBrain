@@ -88,9 +88,11 @@ const reviewStatusLabel = {
 export default function AdminPanel({
   offline,
   onVaultChanged,
+  onSessionExpired,
 }: {
   offline: boolean;
   onVaultChanged: () => void;
+  onSessionExpired: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -105,12 +107,21 @@ export default function AdminPanel({
   const [managerAnswer, setManagerAnswer] = useState<ManagerAnswer | null>(null);
   const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
 
+  async function request<T>(url: string, init?: RequestInit): Promise<T> {
+    try {
+      return await json<T>(url, init);
+    } catch (reason) {
+      if (String(reason).includes("需要登录")) onSessionExpired();
+      throw reason;
+    }
+  }
+
   async function load() {
     if (offline) return;
     const [nextReviews, nextMemory, health] = await Promise.all([
-      json<Review[]>("/api/manager/reviews"),
-      json<MemoryState>("/api/memory"),
-      json<Health>("/api/health"),
+      request<Review[]>("/api/manager/reviews"),
+      request<MemoryState>("/api/memory"),
+      request<Health>("/api/health"),
     ]);
     setReviews(nextReviews);
     setMemory(nextMemory);
@@ -126,7 +137,7 @@ export default function AdminPanel({
   async function decide(id: string, decision: "apply" | "reject") {
     setBusy(true);
     try {
-      await json(`/api/manager/reviews/${id}/decision`, {
+      await request(`/api/manager/reviews/${id}/decision`, {
         method: "POST",
         body: JSON.stringify({ decision }),
       });
@@ -145,7 +156,7 @@ export default function AdminPanel({
     if (!draft) return;
     setBusy(true);
     try {
-      await json("/api/memory/config", {
+      await request("/api/memory/config", {
         method: "PUT",
         body: JSON.stringify(draft),
       });
@@ -160,9 +171,9 @@ export default function AdminPanel({
   async function runNow() {
     setBusy(true);
     try {
-      const run = await json<{ id: string; status: "completed" | "awaiting-manager" }>("/api/memory/run", { method: "POST" });
+      const run = await request<{ id: string; status: "completed" | "awaiting-manager" }>("/api/memory/run", { method: "POST" });
       if (run.status === "awaiting-manager")
-        await json(`/api/memory/runs/${run.id}/execute`, { method: "POST", body: JSON.stringify({}) });
+        await request(`/api/memory/runs/${run.id}/execute`, { method: "POST", body: JSON.stringify({}) });
       await load();
     } catch (reason) {
       setError(String(reason));
@@ -173,7 +184,7 @@ export default function AdminPanel({
   async function decideInbox(id: string, decision: "accept" | "reject") {
     setBusy(true);
     try {
-      await json(`/api/memory/confirmations/${id}/decision`, {
+      await request(`/api/memory/confirmations/${id}/decision`, {
         method: "POST", body: JSON.stringify({ decision }),
       });
       await load();
@@ -187,7 +198,7 @@ export default function AdminPanel({
   }
   async function markMemoryNotificationRead(id: string) {
     try {
-      await json(`/api/memory/notifications/${id}/read`, { method: "POST", body: JSON.stringify({}) });
+      await request(`/api/memory/notifications/${id}/read`, { method: "POST", body: JSON.stringify({}) });
       setMemory((current) => current ? {
         ...current,
         notifications: current.notifications.map((item) => item.id === id ? { ...item, read: true } : item),
@@ -202,7 +213,7 @@ export default function AdminPanel({
     if (!query) return;
     setBusy(true);
     try {
-      const response = await json<KnowledgeSearch>("/api/cil", {
+      const response = await request<KnowledgeSearch>("/api/cil", {
         method: "POST",
         body: JSON.stringify({
           version: 1,
@@ -228,7 +239,7 @@ export default function AdminPanel({
     if (!question) return;
     setBusy(true);
     try {
-      const answer = await json<ManagerAnswer>("/api/manager/ask", {
+      const answer = await request<ManagerAnswer>("/api/manager/ask", {
         method: "POST", body: JSON.stringify({ question }),
       });
       setManagerAnswer(answer);

@@ -6,7 +6,11 @@ import AdminPanel from "../src/AdminPanel";
 describe("administrator entry", () => {
   it("keeps local evidence search separate from an unavailable model answer", () => {
     const html = renderToStaticMarkup(
-      <AdminPanel offline={false} onVaultChanged={() => {}} />,
+      <AdminPanel
+        offline={false}
+        onVaultChanged={() => {}}
+        onSessionExpired={() => {}}
+      />,
     );
     expect(html).toContain("管理员与每日整理");
     expect(html).not.toContain("本地资料检索");
