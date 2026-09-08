@@ -31,6 +31,7 @@ describe("portable document transclusion", () => {
     });
     expect(html).toContain('class="note-embed"');
     expect(html).toContain("<summary>嵌入内容");
+    expect(html).toContain("打开原文");
     expect(html).toContain("来源：主题来源</button>");
     expect(html).toContain("具体内容。");
     expect(html).not.toContain("文档属性");

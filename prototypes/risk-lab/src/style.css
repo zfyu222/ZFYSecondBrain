@@ -637,6 +637,9 @@ h1 {
   font-size: 0.875rem;
   margin-bottom: 0.75rem;
 }
+.markdown-reading .embed-actions {
+  margin: 0.5rem 0 0.75rem;
+}
 .attachment-picker {
   display: block;
   padding: 10px 16px;

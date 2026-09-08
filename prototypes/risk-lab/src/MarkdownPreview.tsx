@@ -149,6 +149,13 @@ export function MarkdownPreview({
             return (
               <details className="note-embed" open>
                 <summary>嵌入内容{typeof path === "string" ? `：${path}` : ""}</summary>
+                {typeof path === "string" && path.length > 0 && (
+                  <div className="embed-actions">
+                    <button type="button" onClick={() => onOpen(path)}>
+                      打开原文
+                    </button>
+                  </div>
+                )}
                 {children}
               </details>
             );
