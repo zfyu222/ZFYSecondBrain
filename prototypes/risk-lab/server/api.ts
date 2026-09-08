@@ -64,11 +64,25 @@ export function registerVaultApi(
       ? (request.body as { password?: unknown }).password : undefined;
     const token = await auth.login(password);
     if (!token) return reply.code(401).send({ error: "账号或密码错误" });
-    return reply.header("Set-Cookie", `zfy_session=${token}; HttpOnly; SameSite=Strict; Path=/`).send({ authenticated: true });
+    const forwardedHeader = request.headers["x-forwarded-proto"];
+    const forwarded = (Array.isArray(forwardedHeader) ? forwardedHeader[0] : forwardedHeader)
+      ?.split(",")[0]
+      ?.trim();
+    const secure = request.protocol === "https" || forwarded === "https";
+    return reply
+      .header("Set-Cookie", `zfy_session=${token}; HttpOnly; SameSite=Strict; Path=/${secure ? "; Secure" : ""}`)
+      .send({ authenticated: true });
   });
   app.post("/api/auth/logout", (request, reply) => {
     auth.logout(request.headers.cookie);
-    return reply.header("Set-Cookie", "zfy_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0").send({ authenticated: false });
+    const forwardedHeader = request.headers["x-forwarded-proto"];
+    const forwarded = (Array.isArray(forwardedHeader) ? forwardedHeader[0] : forwardedHeader)
+      ?.split(",")[0]
+      ?.trim();
+    const secure = request.protocol === "https" || forwarded === "https";
+    return reply
+      .header("Set-Cookie", `zfy_session=; HttpOnly; SameSite=Strict; Path=/${secure ? "; Secure" : ""}; Max-Age=0`)
+      .send({ authenticated: false });
   });
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ConflictError)

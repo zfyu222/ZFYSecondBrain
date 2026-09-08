@@ -38,6 +38,14 @@ describe("single-account authentication boundary", () => {
     const login = await app.inject({ method: "POST", url: "/api/auth/login", headers, payload: { password: "password" } });
     expect(login.statusCode).toBe(200);
     const cookie = login.headers["set-cookie"]!;
+    expect(cookie).not.toContain("Secure");
+    const httpsLogin = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: { ...headers, "x-forwarded-proto": "https" },
+      payload: { password: "password" },
+    });
+    expect(httpsLogin.headers["set-cookie"]).toContain("Secure");
     expect(
       (await app.inject({ url: "/api/auth/session", headers: { ...headers, cookie } })).json(),
     ).toEqual({ authenticated: true });
