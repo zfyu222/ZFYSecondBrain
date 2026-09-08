@@ -240,8 +240,16 @@ function App() {
       );
       if (!proceed) return;
     }
-    await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
-    setAuthenticated(false);
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (!response.ok) throw new Error(`退出登录失败（${response.status}）`);
+      setAuthenticated(false);
+    } catch (error) {
+      setError(String(error));
+    }
   }
   useEffect(() => {
     if (!authenticated) return;
