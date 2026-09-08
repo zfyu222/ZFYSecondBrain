@@ -112,7 +112,10 @@ export function registerVaultApi(
     const snapshot = await store.snapshot();
     if (snapshot.attachments && request.headers["x-vault-protocol"] !== "2")
       return reply.code(426).send({ error: "知识库包含附件，请升级客户端" });
-    return reply.header("Cache-Control", "no-store").send(snapshot);
+    const etag = `"${snapshot.revision}"`;
+    if (request.headers["if-none-match"] === etag)
+      return reply.header("ETag", etag).header("Cache-Control", "no-store").code(304).send();
+    return reply.header("ETag", etag).header("Cache-Control", "no-store").send(snapshot);
   });
   app.post("/api/commit", (request) =>
     store.commit(changeSchema.parse(request.body)),

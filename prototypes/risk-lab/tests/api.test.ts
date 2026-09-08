@@ -51,6 +51,22 @@ describe("local protocol boundary", () => {
     expect(current.headers["referrer-policy"]).toBe("no-referrer");
     expect(current.headers["permissions-policy"]).toContain("microphone=()");
   });
+
+  it("returns 304 when the client already has the current snapshot revision", async () => {
+    const { app, store } = await fixture();
+    const snapshot = await store.snapshot();
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/snapshot",
+      headers: {
+        ...headers,
+        "x-vault-protocol": "2",
+        "if-none-match": `"${snapshot.revision}"`,
+      },
+    });
+    expect(response.statusCode).toBe(304);
+    expect(response.headers.etag).toBe(`"${snapshot.revision}"`);
+  });
   it("reports only whether a model key is configured, never the credential", async () => {
     const { app } = await fixture();
     const health = await app.inject({ url: "/api/health", headers });

@@ -494,13 +494,16 @@ function checkedSnapshot(input: unknown): Snapshot {
   validateContent(snapshot.files, snapshot.attachments);
   return snapshot;
 }
-export async function requestSnapshot(): Promise<Snapshot> {
+export async function requestSnapshot(previous?: Snapshot | null): Promise<Snapshot> {
+  const headers: Record<string, string> = { "X-Vault-Protocol": "2" };
+  if (previous) headers["If-None-Match"] = `"${previous.revision}"`;
   const response = await fetch("/api/snapshot", {
     cache: "no-store",
-    headers: { "X-Vault-Protocol": "2" },
+    headers,
     signal: AbortSignal.timeout(8000),
   });
   if (response.status === 401) throw new Error("登录已失效，请重新登录");
+  if (response.status === 304 && previous) return previous;
   if (!response.ok) throw new Error("测试服务不可用");
   return checkedSnapshot(await response.json());
 }
@@ -510,7 +513,7 @@ export async function synchronize(db: LocalVault): Promise<LocalState> {
   if (row.conflict) return row;
   // Persist exact outbound payload. Retrying after a lost response must reuse it.
   if (!row.pending) {
-    const remote = await requestSnapshot();
+    const remote = await requestSnapshot(row.base);
     const aligned = alignMoves(row.base, row.files, remote, row.attachments);
     const result = mergeFiles(aligned.baseFiles, aligned.files, remote.files);
     const attachmentResult = mergeAttachments(
