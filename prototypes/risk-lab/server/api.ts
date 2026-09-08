@@ -49,9 +49,11 @@ export function registerVaultApi(
       !access.origins.includes(origin)
     )
       return reply.code(403).send({ error: "拒绝跨站请求" });
+    const route = request.url.split("?")[0];
     if (
       auth.enabled &&
-      !["/api/auth/login", "/api/health"].includes(request.url.split("?")[0]) &&
+      route.startsWith("/api/") &&
+      !["/api/auth/login", "/api/auth/session", "/api/health"].includes(route) &&
       !(await auth.authorized(request.headers.cookie))
     )
       return reply.code(401).send({ error: "需要登录" });

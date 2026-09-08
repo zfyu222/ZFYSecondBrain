@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "browser:smoke": "tsx scripts/browser-smoke.ts",
+    "browser:auth-smoke": "tsx scripts/browser-auth-smoke.ts",
     "browser:offline-smoke": "tsx scripts/browser-offline-smoke.ts"
   },
   "dependencies": {

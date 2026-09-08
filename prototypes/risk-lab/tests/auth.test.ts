@@ -31,10 +31,16 @@ describe("single-account authentication boundary", () => {
     const app = Fastify();
     registerVaultApi(app, store, new SingleAccountAuth(root, "password"));
     const headers = { host: "127.0.0.1:4173", origin: "http://127.0.0.1:4173" };
+    const session = await app.inject({ url: "/api/auth/session", headers });
+    expect(session.statusCode).toBe(200);
+    expect(session.json()).toEqual({ authenticated: false });
     expect((await app.inject({ url: "/api/snapshot", headers })).statusCode).toBe(401);
     const login = await app.inject({ method: "POST", url: "/api/auth/login", headers, payload: { password: "password" } });
     expect(login.statusCode).toBe(200);
     const cookie = login.headers["set-cookie"]!;
+    expect(
+      (await app.inject({ url: "/api/auth/session", headers: { ...headers, cookie } })).json(),
+    ).toEqual({ authenticated: true });
     expect((await app.inject({ url: "/api/snapshot", headers: { ...headers, cookie } })).statusCode).toBe(200);
     await app.close();
   });

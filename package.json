@@ -10,6 +10,7 @@
     "typecheck": "pnpm --filter @zfy/risk-lab typecheck",
     "preview:prototype": "pnpm --filter @zfy/risk-lab start",
     "browser:smoke": "pnpm --filter @zfy/risk-lab browser:smoke",
+    "browser:auth-smoke": "pnpm --filter @zfy/risk-lab browser:auth-smoke",
     "browser:offline-smoke": "pnpm --filter @zfy/risk-lab browser:offline-smoke"
   }
 }

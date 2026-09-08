@@ -24,6 +24,8 @@ pnpm preview:prototype
 
 服务启动后可执行 `pnpm browser:smoke`：它使用独立无痕 Chrome 上下文，只读检查健康接口、原文编辑区和管理员入口；不会发送模型请求、写入知识库或复用日常浏览器的数据。
 
+`pnpm browser:auth-smoke` 会在独立目录与端口启用单账号认证，实测错误密码被拒绝、正确密码进入编辑界面，且登录 Cookie 能读取受保护快照。它使用固定测试密码，不读取本机 `.env` 或默认数据目录。
+
 `pnpm browser:offline-smoke` 会自行建立临时隔离服务和无痕浏览器：先缓存当前构建并等待 Service Worker 接管，再停止临时服务，从根入口验证离线重开。临时数据目录保留在忽略的 `.prototype-data` 下，不会触碰默认服务或发送模型请求。
 
 本机验收如需隔离服务，可在启动前设置绝对路径 `ZFY_DATA_DIR` 和 `1024–65535` 的 `ZFY_PORT`；默认仍使用本目录 `.prototype-data/server` 与 `4173`。相对路径、文件系统根目录和无效端口会在启动前拒绝，避免误把测试写入错误位置。
