@@ -60,6 +60,10 @@ try {
     await firstEditor.press("Control+A");
     await first.keyboard.insertText(`# ${marker}\n\n标签页之间的本地版本广播。\n`);
     await expect(firstEditor).toContainText(marker);
+    // The editor update is synchronous, but the IndexedDB commit and
+    // BroadcastChannel notification are intentionally debounced. Give that
+    // local transaction a turn before asserting the sibling tab's reload.
+    await first.waitForTimeout(750);
     const secondEditor = second.locator('.cm-content[contenteditable="true"]').first();
     await expect(secondEditor).toContainText(marker, { timeout: 12_000 });
     assert.ok((await secondEditor.innerText()).includes(marker));
