@@ -1114,6 +1114,19 @@ function App() {
             <option key={tag} value={tag} />
           ))}
         </datalist>
+        {(query.trim() || tagQuery.trim() || includeArchive) && (
+          <button
+            type="button"
+            className="clear-folder"
+            onClick={() => {
+              setQuery("");
+              setTagQuery("");
+              setIncludeArchive(false);
+            }}
+          >
+            清除筛选
+          </button>
+        )}
         {(query.trim() || tagQuery.trim()) && (
           <label className="archive-search">
             <input
