@@ -7,12 +7,16 @@ const commands = [
   ["check:build", []],
 ] as const;
 
-const pnpm = "pnpm";
+const command =
+  process.platform === "win32"
+    ? (script: string) => ({ file: process.env.ComSpec ?? "cmd.exe", args: ["/d", "/s", "/c", `pnpm ${script}`] })
+    : (script: string) => ({ file: "pnpm", args: [script] });
 for (const [script, args] of commands) {
   console.log(`\n== pnpm ${script} ==`);
-  const result = spawnSync(pnpm, [script, ...args], {
+  const invocation = command(script);
+  const result = spawnSync(invocation.file, [...invocation.args, ...args], {
     stdio: "inherit",
-    shell: process.platform === "win32",
+    shell: false,
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {
