@@ -45,3 +45,5 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Run local release gate
         run: pnpm verify:local
+      - name: Run browser release gate
+        run: pnpm verify:browser
