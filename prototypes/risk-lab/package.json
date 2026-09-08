@@ -11,7 +11,8 @@
     "cil": "tsx server/cil-cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "browser:smoke": "tsx scripts/browser-smoke.ts"
+    "browser:smoke": "tsx scripts/browser-smoke.ts",
+    "browser:offline-smoke": "tsx scripts/browser-offline-smoke.ts"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.4",
