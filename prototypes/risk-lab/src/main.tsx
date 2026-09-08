@@ -180,11 +180,15 @@ function App() {
   const saveFailure = useRef(false);
   const operationBusy = useRef(false);
   const emergencyImport = useRef<HTMLInputElement>(null);
+  const tabChannel = useRef<BroadcastChannel | null>(null);
   function accept(next: LocalState) {
+    const previousVersion = rowRef.current?.version;
     rowRef.current = next;
     setRow(next);
     filesRef.current = next.files;
     setFiles(next.files);
+    if (next.version !== previousVersion)
+      tabChannel.current?.postMessage({ version: next.version });
   }
   function recordNotification(
     level: NotificationEntry["level"],
@@ -229,6 +233,21 @@ function App() {
     setPassword("");
     setAuthenticated(true);
   }
+  useEffect(() => {
+    if (!authenticated) return;
+    if (typeof BroadcastChannel === "undefined") return;
+    const channel = new BroadcastChannel("zfy-risk-lab-vault");
+    tabChannel.current = channel;
+    channel.onmessage = (event: MessageEvent<{ version?: unknown }>) => {
+      const version = event.data?.version;
+      if (typeof version === "number" && version > (rowRef.current?.version ?? -1))
+        void reload().catch((error) => setError(String(error)));
+    };
+    return () => {
+      channel.close();
+      if (tabChannel.current === channel) tabChannel.current = null;
+    };
+  }, [authenticated]);
   useEffect(() => {
     if (!authenticated) return;
     void reload().catch((e) => setError(String(e)));
