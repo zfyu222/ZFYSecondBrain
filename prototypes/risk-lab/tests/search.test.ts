@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchesNoteSearch } from "../src/core/search";
+import { matchesNoteSearch, matchesTagFilter } from "../src/core/search";
 
 describe("local note search", () => {
   const source = "---\ntags: [健康, 睡眠]\n---\n本月减脂速度较慢";
@@ -29,5 +29,9 @@ describe("local note search", () => {
     expect(
       matchesNoteSearch("raw/Archive/旧笔记", source, "#健康", false),
     ).toBe(false);
+  });
+  it("supports multiple tags in the dedicated tag filter", () => {
+    expect(matchesTagFilter("raw/Areas/a", source, "#健康 #睡眠", false)).toBe(true);
+    expect(matchesTagFilter("raw/Areas/a", source, "健康 #运动", false)).toBe(false);
   });
 });

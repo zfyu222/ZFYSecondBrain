@@ -56,7 +56,7 @@ import {
   noteTitle,
   setNoteTitle,
 } from "./core/note-metadata";
-import { matchesNoteSearch } from "./core/search";
+import { matchesNoteSearch, matchesTagFilter } from "./core/search";
 import { isTemplateStem, templateName } from "./core/templates";
 import { appearsInFolder, folderTree, type FolderNode } from "./core/folders";
 import "./style.css";
@@ -950,18 +950,8 @@ function App() {
       query,
       includeArchive,
     );
-  const matchesTag = (stem: string) => {
-    const wanted = tagQuery.trim().replace(/^#/, "").toLocaleLowerCase();
-    if (!wanted) return true;
-    if (!includeArchive && stem.startsWith("raw/Archive/")) return false;
-    try {
-      return noteTags(files[stem + ".md"] ?? "").some(
-        (tag) => tag.toLocaleLowerCase() === wanted,
-      );
-    } catch {
-      return false;
-    }
-  };
+  const matchesTag = (stem: string) =>
+    matchesTagFilter(stem, files[stem + ".md"] ?? "", tagQuery, includeArchive);
   const matchesCurrentFolder = (stem: string) =>
     appearsInFolder(stem, files[stem + ".md"], folderPrefix);
   const matchesSpace = (stem: string) =>

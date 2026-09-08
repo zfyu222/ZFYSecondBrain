@@ -1,5 +1,26 @@
 import { noteTags } from "./note-metadata";
 
+export function matchesTagFilter(
+  stem: string,
+  markdown: string,
+  filter: string,
+  includeArchive: boolean,
+) {
+  const requested = filter
+    .trim()
+    .split(/\s+/)
+    .map((token) => token.replace(/^#/, "").toLocaleLowerCase("en-US"))
+    .filter(Boolean);
+  if (!requested.length) return true;
+  if (!includeArchive && stem.startsWith("raw/Archive/")) return false;
+  try {
+    const tags = new Set(noteTags(markdown).map((tag) => tag.toLocaleLowerCase("en-US")));
+    return requested.every((tag) => tags.has(tag));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * A compact local-query grammar: ordinary terms match readable path/body text;
  * `#tag` terms are conjunctive portable OFM tag filters. Archive is opt-in
