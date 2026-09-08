@@ -22,4 +22,12 @@ describe("local note search", () => {
       matchesNoteSearch("raw/Archive/旧笔记", source, "减脂", true),
     ).toBe(true);
   });
+  it("keeps archive exclusion available when the query is tag-only", () => {
+    expect(
+      matchesNoteSearch("raw/Archive/旧笔记", source, "", false),
+    ).toBe(true);
+    expect(
+      matchesNoteSearch("raw/Archive/旧笔记", source, "#健康", false),
+    ).toBe(false);
+  });
 });

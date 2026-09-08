@@ -953,6 +953,7 @@ function App() {
   const matchesTag = (stem: string) => {
     const wanted = tagQuery.trim().replace(/^#/, "").toLocaleLowerCase();
     if (!wanted) return true;
+    if (!includeArchive && stem.startsWith("raw/Archive/")) return false;
     try {
       return noteTags(files[stem + ".md"] ?? "").some(
         (tag) => tag.toLocaleLowerCase() === wanted,
@@ -1123,7 +1124,7 @@ function App() {
             <option key={tag} value={tag} />
           ))}
         </datalist>
-        {query.trim() && (
+        {(query.trim() || tagQuery.trim()) && (
           <label className="archive-search">
             <input
               type="checkbox"
