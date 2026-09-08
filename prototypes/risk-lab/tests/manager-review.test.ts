@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerVaultApi } from "../server/api";
 import { FileStore } from "../server/store";
 
@@ -272,5 +272,29 @@ describe("AI manager review boundary", () => {
     expect(read.statusCode).toBe(200);
     expect((await app.inject({ method: "GET", url: "/api/memory", headers })).json().notifications
       .find((item: { id: string }) => item.id === notification.id).read).toBe(true);
+  });
+
+  it("rejects model execution without a server key before changing the planned source", async () => {
+    vi.stubEnv("DEEPSEEK_API_KEY", "");
+    try {
+      const { app, store } = await fixture();
+      await app.inject({
+        method: "PUT", url: "/api/memory/config", headers,
+        payload: { enabled: true, localTime: "03:00", capabilities: { summaries: true, inbox: false, dualView: false } },
+      });
+      const before = await store.snapshot();
+      const run = await app.inject({ method: "POST", url: "/api/memory/run", headers, payload: {} });
+      const executed = await app.inject({
+        method: "POST", url: `/api/memory/runs/${run.json().id}/execute`, headers, payload: {},
+      });
+      expect(executed.statusCode).toBe(400);
+      expect(executed.json().error).toContain("未配置 DEEPSEEK_API_KEY");
+      expect(await store.snapshot()).toEqual(before);
+      expect((await app.inject({ method: "GET", url: "/api/memory", headers })).json().runs.at(-1)).toMatchObject({
+        status: "awaiting-manager", processed: [],
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

@@ -29,6 +29,7 @@ type MemoryState = {
     status: "completed" | "awaiting-manager";
     message: string;
     candidates: MemoryCandidate[];
+    processed: string[];
   }[];
   confirmations: {
     id: string;
@@ -413,10 +414,13 @@ export default function AdminPanel({
                   </strong>
                   <p>{new Date(latest.startedAt).toLocaleString()} · 来源版本 {latest.sourceRevision.slice(0, 10)}</p>
                   <p>{latest.message}</p>
+                  <p>已完成 {latest.processed.length}/{latest.candidates.length} 项；未完成项会在来源版本不变时继续处理。</p>
                   <ul>
                     {latest.candidates.slice(0, 20).map((item, index) => (
                       <li key={`${item.capability}-${item.path}-${index}`}>
-                        <b>{capabilityLabel[item.capability]}</b> · {item.path}<br />
+                        <b>{capabilityLabel[item.capability]}</b> · {item.path}
+                        {latest.processed.includes(`${item.capability}:${item.path}`) ? " · 已完成" : " · 待处理"}
+                        <br />
                         {item.reason}
                       </li>
                     ))}

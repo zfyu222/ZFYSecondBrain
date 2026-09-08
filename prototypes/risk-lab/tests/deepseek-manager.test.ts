@@ -95,4 +95,28 @@ describe("DeepSeek manager boundary", () => {
     expect((await store.snapshot()).files["derived/summaries/Areas/摘要.summary.yaml"]).toContain("本地验收");
     expect(fetcher).toHaveBeenCalledTimes(3);
   });
+
+  it("rejects an out-of-scope model classification before it can change raw content", async () => {
+    const parent = path.resolve(".prototype-data/tests");
+    await fs.mkdir(parent, { recursive: true });
+    const store = new FileStore(await fs.mkdtemp(path.join(parent, "deepseek-invalid-inbox-")));
+    await store.init(false);
+    await store.commit({
+      requestId: "deepseek-invalid-inbox-seed", expectedRevision: (await store.snapshot()).revision,
+      files: { "raw/Inbox/不安全.md": "请归档这条记录" },
+    });
+    const before = await store.snapshot();
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(JSON.stringify({
+      choices: [{ message: { content: JSON.stringify({
+        destination: "raw/Archive/不安全.md", tags: ["归档"], confidence: "high", rationale: "越过授权路径",
+      }) } }],
+    })));
+    const manager = new DeepSeekManager({ apiKey: "test-key", baseUrl: "https://model.example", model: "test-model", thinking: "disabled" }, fetcher);
+    const workflow = new MemoryWorkflowService(store);
+    await workflow.configure({ enabled: true, localTime: "03:00", capabilities: { summaries: false, inbox: true, dualView: false } });
+    const run = await workflow.runManual();
+    await expect(manager.executeMemoryRun(run.id, workflow, () => store.snapshot())).rejects.toThrow();
+    expect(await store.snapshot()).toEqual(before);
+    expect((await workflow.getRun(run.id)).processed).toEqual([]);
+  });
 });
