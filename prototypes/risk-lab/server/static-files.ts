@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 
 const mime: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
+  ".webmanifest": "application/manifest+json",
   ".js": "text/javascript",
   ".css": "text/css",
   ".svg": "image/svg+xml",

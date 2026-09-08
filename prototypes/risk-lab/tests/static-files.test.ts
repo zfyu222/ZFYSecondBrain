@@ -35,4 +35,16 @@ describe("generated local preview assets", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().statusCode).toBe(400);
   });
+
+  it("serves PWA manifests with the browser-recognized media type", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "risk-lab-static-"));
+    roots.push(root);
+    await fs.writeFile(path.join(root, "manifest.webmanifest"), '{"display":"standalone"}');
+    const app = Fastify();
+    registerStaticFiles(app, root);
+    const response = await app.inject("/manifest.webmanifest");
+    await app.close();
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("application/manifest+json");
+  });
 });
