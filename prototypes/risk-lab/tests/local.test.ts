@@ -46,6 +46,20 @@ describe("local persistence and sync queue", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "需要登录" }), { status: 401 })));
     await expect(requestSnapshot()).rejects.toThrow("登录已失效");
   });
+  it("reuses the prior snapshot when the server returns 304", async () => {
+    const previous = {
+      protocolVersion: 2 as const,
+      revision: "same",
+      files: { [p]: "base" },
+      attachments: {},
+    };
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      expect(new Headers(init?.headers).get("If-None-Match")).toBe('"same"');
+      return new Response(null, { status: 304 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(requestSnapshot(previous)).resolves.toBe(previous);
+  });
   it("persists notification entries and marks one as read", async () => {
     const db = await fixture();
     const first = await addNotification(
