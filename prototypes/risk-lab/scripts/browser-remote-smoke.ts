@@ -18,6 +18,11 @@ try {
   });
   if (!response?.ok()) throw new Error(`远程首页返回 ${response?.status() ?? "未知状态"}`);
   const base = origin.replace(/\/$/, "");
+  if (process.env.ZFY_REMOTE_EXPECT_AI === "1") {
+    const health = await page.request.get(`${base}/api/health`);
+    if (!health.ok() || (await health.json()).aiConfigured !== true)
+      throw new Error("远程健康接口未识别到 AI 模型配置");
+  }
   const manifest = await page.request.get(`${base}/manifest.webmanifest`);
   if (!manifest.ok() || (await manifest.json()).display !== "standalone")
     throw new Error("远程 PWA manifest 未生效");
