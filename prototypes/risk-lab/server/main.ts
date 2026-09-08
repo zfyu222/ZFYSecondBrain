@@ -6,6 +6,7 @@ import { registerVaultApi } from "./api";
 import { startLocalServer } from "./startup";
 import { registerStaticFiles } from "./static-files";
 import { accessControlFromEnvironment } from "./access-control";
+import { serverRuntimeConfig } from "./runtime-config";
 
 const appRoot = fileURLToPath(new URL("..", import.meta.url));
 try {
@@ -13,9 +14,10 @@ try {
 } catch (error) {
   if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 }
-const store = new FileStore(path.join(appRoot, ".prototype-data", "server"));
+const runtime = serverRuntimeConfig(process.env, appRoot);
+const store = new FileStore(runtime.dataDir);
 const app = Fastify({ logger: false, bodyLimit: 12_000_000 });
-const access = accessControlFromEnvironment();
+const access = accessControlFromEnvironment(process.env, runtime.port);
 registerVaultApi(app, store, undefined, access);
 if (process.argv.includes("--production")) {
   registerStaticFiles(app, path.join(appRoot, "dist"));
@@ -32,9 +34,9 @@ if (process.argv.includes("--production")) {
   });
   app.addHook("onClose", () => vite.close());
 }
-await startLocalServer(app, () => store.init(), 4173, access.listenHost);
+await startLocalServer(app, () => store.init(), runtime.port, access.listenHost);
 console.log(
-  `${access.listenHost === "127.0.0.1" ? "Local: http://127.0.0.1:4173" : "Public origin: " + access.origins[0]} — isolated risk prototype, not a production server`,
+  `${access.listenHost === "127.0.0.1" ? `Local: http://127.0.0.1:${runtime.port}` : "Public origin: " + access.origins[0]} — isolated risk prototype, not a production server`,
 );
 for (const signal of ["SIGINT", "SIGTERM"] as const)
   process.on(signal, () => {

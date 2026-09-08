@@ -4,11 +4,13 @@ export type AccessControl = {
   listenHost: "127.0.0.1" | "0.0.0.0";
 };
 
-const local: AccessControl = {
-  hosts: ["127.0.0.1:4173", "localhost:4173"],
-  origins: ["http://127.0.0.1:4173", "http://localhost:4173"],
-  listenHost: "127.0.0.1",
-};
+function localAccess(port: number): AccessControl {
+  return {
+    hosts: [`127.0.0.1:${port}`, `localhost:${port}`],
+    origins: [`http://127.0.0.1:${port}`, `http://localhost:${port}`],
+    listenHost: "127.0.0.1",
+  };
+}
 
 /**
  * A remote listener is deliberately opt-in.  The public endpoint must be an
@@ -17,9 +19,10 @@ const local: AccessControl = {
  */
 export function accessControlFromEnvironment(
   environment: Record<string, string | undefined> = process.env,
+  port = 4173,
 ): AccessControl {
   const configured = environment.ZFY_PUBLIC_ORIGIN?.trim();
-  if (!configured) return local;
+  if (!configured) return localAccess(port);
   let url: URL;
   try {
     url = new URL(configured);

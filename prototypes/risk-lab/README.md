@@ -24,6 +24,8 @@ pnpm preview:prototype
 
 服务启动后可执行 `pnpm browser:smoke`：它使用独立无痕 Chrome 上下文，只读检查健康接口、原文编辑区和管理员入口；不会发送模型请求、写入知识库或复用日常浏览器的数据。
 
+本机验收如需隔离服务，可在启动前设置绝对路径 `ZFY_DATA_DIR` 和 `1024–65535` 的 `ZFY_PORT`；默认仍使用本目录 `.prototype-data/server` 与 `4173`。相对路径、文件系统根目录和无效端口会在启动前拒绝，避免误把测试写入错误位置。
+
 若要启用真实管理员问答，复制 `.env.example` 为本机未跟踪的 `.env`，填入 `DEEPSEEK_API_KEY`；可选配置 `DEEPSEEK_BASE_URL` 与 `DEEPSEEK_MODEL`。密钥只由服务端读取，前端不会接触。模型调用只在用户点击“获取带引用的回答”后发生；最多发送 8 篇检索命中的非归档 Markdown，找不到本机证据时不会调用模型，也不会自动写入知识库。
 
 ## Compose 预演

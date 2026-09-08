@@ -10,6 +10,14 @@ describe("remote access configuration", () => {
     });
   });
 
+  it("keeps a configured local test port loopback-only", () => {
+    expect(accessControlFromEnvironment({}, 48173)).toEqual({
+      hosts: ["127.0.0.1:48173", "localhost:48173"],
+      origins: ["http://127.0.0.1:48173", "http://localhost:48173"],
+      listenHost: "127.0.0.1",
+    });
+  });
+
   it("allows a remote listener only for an explicit HTTPS origin", () => {
     expect(
       accessControlFromEnvironment({ ZFY_PUBLIC_ORIGIN: "https://notes.example.test" }),
