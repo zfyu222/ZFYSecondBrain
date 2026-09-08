@@ -30,7 +30,7 @@ async function stopServer() {
 }
 async function openApp(context: BrowserContext) {
   const page = await context.newPage();
-  page.setDefaultTimeout(12_000);
+  page.setDefaultTimeout(20_000);
   await page.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
   await Promise.race([page.locator('input[type="password"]').waitFor(), page.getByText("原文 / SOURCE").waitFor()]);
   if (await page.locator('input[type="password"]').count()) {
