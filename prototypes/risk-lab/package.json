@@ -20,7 +20,8 @@
     "browser:dual-view-smoke": "tsx scripts/browser-dual-view-smoke.ts",
     "browser:media-smoke": "tsx scripts/browser-media-smoke.ts",
     "browser:tab-smoke": "tsx scripts/browser-tab-smoke.ts",
-    "browser:remote-smoke": "tsx scripts/browser-remote-smoke.ts"
+    "browser:remote-smoke": "tsx scripts/browser-remote-smoke.ts",
+    "browser:remote-ai-smoke": "tsx scripts/browser-remote-ai-smoke.ts"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.3.4",

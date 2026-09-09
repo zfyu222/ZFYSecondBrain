@@ -21,6 +21,7 @@
     "browser:dual-view-smoke": "pnpm --filter @zfy/risk-lab browser:dual-view-smoke",
     "browser:media-smoke": "pnpm --filter @zfy/risk-lab browser:media-smoke",
     "browser:tab-smoke": "pnpm --filter @zfy/risk-lab browser:tab-smoke",
-    "browser:remote-smoke": "pnpm --filter @zfy/risk-lab browser:remote-smoke"
+    "browser:remote-smoke": "pnpm --filter @zfy/risk-lab browser:remote-smoke",
+    "browser:remote-ai-smoke": "pnpm --filter @zfy/risk-lab browser:remote-ai-smoke"
   }
 }
