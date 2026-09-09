@@ -30,6 +30,27 @@ import {
   type TreeMove,
 } from "./core/map-editing";
 
+const customRelationOption = "__custom_relation__";
+const recentRelationsKey = "zfy-risk-lab-recent-relations-v1";
+const relationGroups = [
+  { label: "概念", values: ["定义为", "属于", "组成", "例子"] },
+  { label: "推理", values: ["导致", "影响", "支持", "反驳"] },
+  { label: "行动", values: ["实现", "依赖", "先于"] },
+  { label: "比较", values: ["相似", "相反"] },
+  { label: "通用", values: ["相关", "未明确"] },
+];
+
+function loadRecentRelations() {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(recentRelationsKey) ?? "[]");
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0 && item.length <= 80).slice(0, 5)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function MapEditor({
   opml,
   relationsText,
@@ -59,6 +80,7 @@ export default function MapEditor({
   const [linkType, setLinkType] = useState("相关");
   const [customLinkType, setCustomLinkType] = useState("");
   const [linkTarget, setLinkTarget] = useState("");
+  const [recentRelations, setRecentRelations] = useState(loadRecentRelations);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [mapError, setMapError] = useState("");
   const history = useRef(new MapHistory());
@@ -66,7 +88,18 @@ export default function MapEditor({
   const rows = parsed.map ? flatten(parsed.map) : [];
   const current = rows.find((r) => r.path === selected) ?? rows[0];
   const effectiveLinkType =
-    linkType === "自定义…" ? customLinkType.trim() : linkType;
+    linkType === customRelationOption ? customLinkType.trim() : linkType;
+  const rememberRelation = (type: string) => {
+    setRecentRelations((current) => {
+      const next = [type, ...current.filter((item) => item !== type)].slice(0, 5);
+      try {
+        localStorage.setItem(recentRelationsKey, JSON.stringify(next));
+      } catch {
+        // Recent choices are only a convenience; blocked storage must not stop editing.
+      }
+      return next;
+    });
+  };
   const visible = rows.filter(
     (row) => ![...collapsed].some((p) => row.path.startsWith(p + "/")),
   );
@@ -437,12 +470,23 @@ export default function MapEditor({
             value={linkType}
             onChange={(e) => setLinkType(e.target.value)}
           >
-            {relationTypes.map((t) => (
-              <option key={t}>{t}</option>
+            {recentRelations.length > 0 && (
+              <optgroup label="最近使用">
+                {recentRelations.map((type) => (
+                  <option key={`recent:${type}`} value={type}>{type}</option>
+                ))}
+              </optgroup>
+            )}
+            {relationGroups.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.values.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </optgroup>
             ))}
-            <option>自定义…</option>
+            <option value={customRelationOption}>自定义…</option>
           </select>
-          {linkType === "自定义…" && (
+          {linkType === customRelationOption && (
             <input
               aria-label="自定义关系类型"
               value={customLinkType}
@@ -467,7 +511,7 @@ export default function MapEditor({
           </select>
           <button
             disabled={!effectiveLinkType || !linkTarget || linkTarget === current.path}
-            onClick={() =>
+            onClick={() => {
               save(parsed.map!, [
                 ...parsed.relations,
                 {
@@ -476,8 +520,9 @@ export default function MapEditor({
                   type: effectiveLinkType,
                   status: effectiveLinkType === "未明确" ? "unresolved" : "confirmed",
                 },
-              ])
-            }
+              ]);
+              rememberRelation(effectiveLinkType);
+            }}
           >
             添加关系
           </button>

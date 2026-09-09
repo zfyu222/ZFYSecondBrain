@@ -99,6 +99,15 @@ try {
     await page.getByLabel("关系目标").selectOption({ index: 1 });
     await page.getByRole("button", { name: "添加关系", exact: true }).click();
     await page.getByText(/→ 制约 →/).waitFor();
+    assert.equal(
+      await page.getByLabel("语义关系类型").evaluate((element) =>
+        Array.from((element as HTMLSelectElement).options).some(
+          (option) => option.value === "制约" && option.parentElement?.getAttribute("label") === "最近使用",
+        ),
+      ),
+      true,
+      "新建的关系没有进入本机最近使用列表",
+    );
     let warned = false;
     page.once("dialog", async (dialog) => {
       warned = dialog.message().includes("尚未同步");
