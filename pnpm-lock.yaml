@@ -10,9 +10,15 @@ importers:
 
   prototypes/risk-lab:
     dependencies:
+      '@codemirror/commands':
+        specifier: 6.11.0
+        version: 6.11.0
       '@codemirror/lang-markdown':
         specifier: ^6.3.4
         version: 6.5.2
+      '@codemirror/view':
+        specifier: 6.43.10
+        version: 6.43.10
       '@flowershow/remark-wiki-link':
         specifier: 3.4.0
         version: 3.4.0

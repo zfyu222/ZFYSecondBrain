@@ -68,6 +68,16 @@ try {
       "# 退出保护验证\n\n本机草稿尚未同步。\n",
     );
     await page.getByText("已保存本机 · 待同步").waitFor();
+    const undo = page.getByRole("button", { name: "撤销", exact: true });
+    assert.equal(await undo.isEnabled(), true, "Markdown 修改后撤销按钮没有启用");
+    await undo.click();
+    await page.waitForFunction(
+      () => !document.querySelector(".cm-content")?.textContent?.includes("本机草稿尚未同步"),
+    );
+    await page.locator('.cm-content[contenteditable="true"]').first().fill(
+      "# 退出保护验证\n\n本机草稿尚未同步。\n",
+    );
+    await page.getByText("已保存本机 · 待同步").waitFor();
     const unloadGuard = await page.evaluate(() => {
       const event = new Event("beforeunload", { cancelable: true });
       window.dispatchEvent(event);

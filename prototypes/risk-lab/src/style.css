@@ -515,6 +515,19 @@ h1 {
   color: #83907d;
   font-size: 12px;
 }
+.markdown-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 6px;
+  color: #718072;
+  font-size: 11px;
+}
+.markdown-editor-actions button {
+  min-height: 28px;
+  padding: 3px 9px;
+  font-size: 12px;
+}
 .cm-editor {
   font-size: 13px;
 }

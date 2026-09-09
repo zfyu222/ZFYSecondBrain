@@ -25,7 +25,9 @@
     "browser:remote-ai-smoke": "tsx scripts/browser-remote-ai-smoke.ts"
   },
   "dependencies": {
+    "@codemirror/commands": "6.11.0",
     "@codemirror/lang-markdown": "^6.3.4",
+    "@codemirror/view": "6.43.10",
     "@flowershow/remark-wiki-link": "3.4.0",
     "@r4ai/remark-callout": "0.6.2",
     "@uiw/react-codemirror": "4.25.11",
