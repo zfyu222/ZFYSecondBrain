@@ -37,6 +37,9 @@ export function registerVaultApi(
     60_000,
   );
   memoryTimer.unref();
+  // Check immediately as well as on the minute: a restart after the configured
+  // time must surface a missed run instead of waiting silently for tomorrow.
+  void runDueMemory().catch((error) => void memoryWorkflow.recordFailure(error));
   app.addHook("onClose", () => clearInterval(memoryTimer));
   app.addHook("onSend", async (_request, reply) => {
     reply

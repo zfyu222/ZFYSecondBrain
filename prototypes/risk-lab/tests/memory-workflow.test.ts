@@ -86,11 +86,12 @@ describe("daily memory workflow", () => {
     expect(candidates.some((item) => item.path.includes("Archive"))).toBe(false);
   });
 
-  it("runs once per server-local date after the configured time", async () => {
+  it("runs once at the configured server-local time", async () => {
     const { service } = await fixture();
     await service.configure(config);
     expect(await service.runDue(new Date(2026, 8, 7, 2, 59))).toBeUndefined();
     expect(await service.runDue(new Date(2026, 8, 7, 3, 5))).toBeUndefined();
+    expect((await service.getState()).notifications.at(-1)?.message).toContain("不会自动补跑");
     const run = await service.runDue(new Date(2026, 8, 7, 3, 0));
     expect(run).toMatchObject({
       trigger: "scheduled",
@@ -98,6 +99,18 @@ describe("daily memory workflow", () => {
       status: "awaiting-manager",
     });
     expect(await service.runDue(new Date(2026, 8, 7, 23, 0))).toBeUndefined();
+  });
+
+  it("records one persistent missed-schedule notification without auto-running work", async () => {
+    const { store, service } = await fixture();
+    await service.configure(config);
+    const before = await store.snapshot();
+    expect(await service.runDue(new Date(2026, 8, 7, 3, 5))).toBeUndefined();
+    expect(await service.runDue(new Date(2026, 8, 7, 8, 0))).toBeUndefined();
+    const state = await service.getState();
+    expect(state.lastMissedScheduledDate).toBe("2026-09-07");
+    expect(state.notifications.filter((item) => item.message.includes("已错过今日"))).toHaveLength(1);
+    expect(await store.snapshot()).toEqual(before);
   });
 
   it("persists schedule state and allows an explicit manual rerun", async () => {

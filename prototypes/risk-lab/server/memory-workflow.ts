@@ -101,6 +101,9 @@ const stateSchema = z
     version: z.literal(1),
     config: memoryConfigSchema,
     lastScheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    // A missed schedule is recorded separately from a completed scheduled run.
+    // This prevents a late server start from silently running unanticipated work.
+    lastMissedScheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     runs: z.array(runSchema).max(100),
     // Defaults retain existing v1 state files created before these queues.
     confirmations: z.array(confirmationSchema).max(100).default([]),
@@ -330,10 +333,18 @@ export class MemoryWorkflowService {
       const { date, time } = localParts(now);
       if (
         !state.config.enabled ||
-        time !== state.config.localTime ||
         state.lastScheduledDate === date
       )
         return undefined;
+      if (time < state.config.localTime) return undefined;
+      if (time > state.config.localTime) {
+        if (state.lastMissedScheduledDate !== date)
+          await this.write(this.notify({
+            ...state,
+            lastMissedScheduledDate: date,
+          }, "error", `已错过今日 ${state.config.localTime} 的每日整理；不会自动补跑，请按需手动执行。`));
+        return undefined;
+      }
       return this.run("scheduled", date, state);
     });
   }
