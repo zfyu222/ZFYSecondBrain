@@ -51,6 +51,8 @@ pnpm browser:offline-smoke
 
 远程最后验收可运行 `ZFY_REMOTE_ORIGIN=https://… ZFY_REMOTE_PASSWORD=… ZFY_REMOTE_ALLOW_SELF_SIGNED=1 pnpm browser:remote-smoke`；该命令只验证登录、主界面和 390px 布局，不写入知识库。正式域名证书通过后省略自签名开关。
 
+远程模型配置和只读问答可在确认成本上限后运行 `ZFY_REMOTE_ORIGIN=https://… ZFY_REMOTE_PASSWORD=… ZFY_REMOTE_ALLOW_SELF_SIGNED=1 pnpm browser:remote-ai-smoke`；它会检查模型配置、请求一次带引用回答并确认返回原文引用，不执行任何写入。
+
 静态资源服务对非法 URL 编码和 NUL 路径会明确拒绝；Fastify 层统一返回 400，避免把请求格式错误误报为服务端 500。
 
 ## 远程验收顺序
