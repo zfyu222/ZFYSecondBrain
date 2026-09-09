@@ -294,6 +294,35 @@ export async function restoreTrashEntry(
   });
 }
 
+export async function permanentlyDeleteTrashEntry(
+  db: LocalVault,
+  expected: number,
+  id: string,
+) {
+  return db.transaction("rw", db.vault, db.trash, async () => {
+    const row = await db.vault.get("vault");
+    if (!row || row.version !== expected)
+      throw new Error("另一个标签页已修改本机数据，请重新载入后再删除");
+    if (!(await db.trash.get(id))) throw new Error("回收站条目不存在");
+    await db.trash.delete(id);
+    const next = { ...structuredClone(row), version: row.version + 1 };
+    await db.vault.put(next);
+    return next;
+  });
+}
+
+export async function emptyTrash(db: LocalVault, expected: number) {
+  return db.transaction("rw", db.vault, db.trash, async () => {
+    const row = await db.vault.get("vault");
+    if (!row || row.version !== expected)
+      throw new Error("另一个标签页已修改本机数据，请重新载入后再清空回收站");
+    await db.trash.clear();
+    const next = { ...structuredClone(row), version: row.version + 1 };
+    await db.vault.put(next);
+    return next;
+  });
+}
+
 export async function saveFilesWithHistory(
   db: LocalVault,
   expected: number,

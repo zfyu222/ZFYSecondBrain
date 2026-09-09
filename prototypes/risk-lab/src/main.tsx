@@ -27,6 +27,8 @@ import {
   type HistoryPoint,
   moveToTrash,
   restoreTrashEntry,
+  permanentlyDeleteTrashEntry,
+  emptyTrash,
   addNotification,
   recentNotifications,
   markNotificationRead,
@@ -494,6 +496,41 @@ function App() {
       setActive(entry.stem);
       setView(entry.files[entry.stem + ".md"] ? "markdown" : "map");
       setMessage("已从回收站恢复；现有文件没有被覆盖");
+    } catch (error) {
+      setError(String(error));
+    } finally {
+      operationBusy.current = false;
+      setBusy(false);
+    }
+  }
+  async function permanentlyDeleteTrash(id: string) {
+    const entry = trashEntries.find((item) => item.id === id);
+    if (!entry || !window.confirm(`永久删除“${entry.stem.split("/").pop()}”？此操作不可恢复。`)) return;
+    if (operationBusy.current || !rowRef.current || !canPerformAction(offline, "structure-change")) return;
+    operationBusy.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await writeQueue.current;
+      accept(await permanentlyDeleteTrashEntry(db, rowRef.current.version, id));
+      setMessage("已永久删除回收站条目，无法恢复");
+    } catch (error) {
+      setError(String(error));
+    } finally {
+      operationBusy.current = false;
+      setBusy(false);
+    }
+  }
+  async function clearTrash() {
+    if (!trashEntries.length || !window.confirm(`清空回收站中的 ${trashEntries.length} 项？此操作不可恢复。`)) return;
+    if (operationBusy.current || !rowRef.current || !canPerformAction(offline, "structure-change")) return;
+    operationBusy.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await writeQueue.current;
+      accept(await emptyTrash(db, rowRef.current.version));
+      setMessage("回收站已清空，条目无法恢复");
     } catch (error) {
       setError(String(error));
     } finally {
@@ -1842,14 +1879,16 @@ function App() {
             {trashEntries.length > 0 && (
               <div className="trash-entries">
                 <p>回收站（恢复不会覆盖现有路径）：</p>
+                <button disabled={offline || busy} onClick={() => void clearTrash()}>清空回收站</button>
                 {trashEntries.map((entry) => (
-                  <button
-                    key={entry.id}
-                    disabled={offline || busy}
-                    onClick={() => void restoreTrash(entry.id)}
-                  >
-                    恢复 {entry.stem.split("/").pop()} · {new Date(entry.at).toLocaleString()}
-                  </button>
+                  <div className="trash-entry" key={entry.id}>
+                    <button disabled={offline || busy} onClick={() => void restoreTrash(entry.id)}>
+                      恢复 {entry.stem.split("/").pop()} · {new Date(entry.at).toLocaleString()}
+                    </button>
+                    <button disabled={offline || busy} onClick={() => void permanentlyDeleteTrash(entry.id)}>
+                      永久删除
+                    </button>
+                  </div>
                 ))}
               </div>
             )}

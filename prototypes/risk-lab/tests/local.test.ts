@@ -14,6 +14,8 @@ import {
   documentHistory,
   moveToTrash,
   restoreTrashEntry,
+  permanentlyDeleteTrashEntry,
+  emptyTrash,
   saveFilesWithHistory,
   resolveConflicts,
   requestSnapshot,
@@ -206,6 +208,23 @@ describe("local persistence and sync queue", () => {
     );
     expect((await db.read()).files[p]).toBe("newer");
     expect(await db.trash.count()).toBe(1);
+  });
+  it("permanently deletes one entry only after the caller confirms", async () => {
+    const db = await fixture();
+    const trashed = await moveToTrash(db, (await db.read()).version, "raw/Inbox/a");
+    const entry = (await db.trash.toArray())[0];
+    const deleted = await permanentlyDeleteTrashEntry(db, trashed.version, entry.id);
+    expect(await db.trash.count()).toBe(0);
+    expect(deleted.version).toBe(trashed.version + 1);
+  });
+  it("clears all trash entries as one versioned local operation", async () => {
+    const db = await fixture();
+    const first = await moveToTrash(db, (await db.read()).version, "raw/Inbox/a");
+    const edited = await db.update(first.version, (state) => ({ ...state, files: { [p]: "second" } }));
+    const second = await moveToTrash(db, edited.version, "raw/Inbox/a");
+    const cleared = await emptyTrash(db, second.version);
+    expect(await db.trash.count()).toBe(0);
+    expect(cleared.version).toBe(second.version + 1);
   });
   it("records readable recent document paths in newest-first order", async () => {
     const db = await fixture();
