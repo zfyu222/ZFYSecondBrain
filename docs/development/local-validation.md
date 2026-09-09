@@ -44,10 +44,11 @@ pnpm browser:move-smoke
 pnpm browser:dual-view-smoke
 pnpm browser:media-smoke
 pnpm browser:tab-smoke
+pnpm browser:memory-schedule-smoke
 pnpm browser:offline-smoke
 ```
 
-根目录 `pnpm verify:browser` 会自动启动或复用本地服务，并依次验证主页/PWA、认证保护、离线重开、跨客户端同步与冲突、路径事务、媒体预览、双视图增量同步和多标签页联动。各专项脚本仍可单独执行；测试服务结束后会清理其临时进程，失败时先保留输出，再检查端口是否被其他本地服务占用。
+根目录 `pnpm verify:browser` 会自动启动或复用本地服务，并依次验证主页/PWA、认证保护、离线重开、跨客户端同步与冲突、路径事务、媒体预览、双视图增量同步、多标签页联动，以及服务晚启动时“错过计划但不自动补跑”的通知。各专项脚本仍可单独执行；测试服务结束后会清理其临时进程，失败时先保留输出，再检查端口是否被其他本地服务占用。
 
 远程最后验收可运行 `ZFY_REMOTE_ORIGIN=https://… ZFY_REMOTE_PASSWORD=… ZFY_REMOTE_ALLOW_SELF_SIGNED=1 pnpm browser:remote-smoke`；该命令只验证登录、主界面和 390px 布局，不写入知识库。正式域名证书通过后省略自签名开关。
 

@@ -19,6 +19,7 @@
     "browser:move-smoke": "tsx scripts/browser-move-smoke.ts",
     "browser:dual-view-smoke": "tsx scripts/browser-dual-view-smoke.ts",
     "browser:media-smoke": "tsx scripts/browser-media-smoke.ts",
+    "browser:memory-schedule-smoke": "tsx scripts/browser-memory-schedule-smoke.ts",
     "browser:tab-smoke": "tsx scripts/browser-tab-smoke.ts",
     "browser:remote-smoke": "tsx scripts/browser-remote-smoke.ts",
     "browser:remote-ai-smoke": "tsx scripts/browser-remote-ai-smoke.ts"

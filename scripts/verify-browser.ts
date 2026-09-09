@@ -8,6 +8,7 @@ const scripts = [
   "browser:conflict-smoke",
   "browser:move-smoke",
   "browser:media-smoke",
+  "browser:memory-schedule-smoke",
   "browser:dual-view-smoke",
   "browser:tab-smoke",
 ];
