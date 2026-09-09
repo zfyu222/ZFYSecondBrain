@@ -9,6 +9,7 @@ if (!origin || !password)
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 const temporaryTitle = `远程同步验收-${randomUUID()}`;
 const temporaryPath = `raw/Inbox/${temporaryTitle}.md`;
+const temporaryAssetPrefix = `raw/Inbox/${temporaryTitle}.assets/`;
 let cleanupPage: Awaited<ReturnType<typeof browser.newPage>> | undefined;
 
 async function removeTemporaryNote() {
@@ -22,15 +23,18 @@ async function removeTemporaryNote() {
     files: Record<string, string>;
     attachments?: Record<string, unknown>;
   };
-  if (!(temporaryPath in snapshot.files)) return;
+  if (!(temporaryPath in snapshot.files) && !Object.keys(snapshot.attachments ?? {}).some((path) => path.startsWith(temporaryAssetPrefix))) return;
   const { [temporaryPath]: _removed, ...files } = snapshot.files;
+  const attachments = Object.fromEntries(
+    Object.entries(snapshot.attachments ?? {}).filter(([path]) => !path.startsWith(temporaryAssetPrefix)),
+  );
   const response = await cleanupPage.request.post(`${origin!.replace(/\/$/, "")}/api/commit`, {
     data: {
       requestId: `remote-smoke-cleanup-${randomUUID()}`,
       expectedRevision: snapshot.revision,
       files,
       protocolVersion: 2,
-      ...(snapshot.attachments ? { attachments: snapshot.attachments } : {}),
+      ...(snapshot.attachments ? { attachments } : {}),
     },
   });
   if (!response.ok()) throw new Error(`远程临时验收笔记清理失败（${response.status()}）`);
@@ -74,8 +78,15 @@ try {
   );
   await page.getByRole("button", { name: "＋ 笔记" }).click();
   await page.getByLabel("文档标题").fill(temporaryTitle);
+  await page.getByLabel("添加本机附件").setInputFiles({
+    name: "remote-pixel.gif",
+    mimeType: "image/gif",
+    buffer: Buffer.from("R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==", "base64"),
+  });
+  await page.getByText("附件和引用已保存本机 · 待同步").waitFor();
   await page.getByRole("button", { name: "同步并检查外部变更" }).click();
   await page.getByText("已同步本地测试服务").waitFor();
+  await page.locator(".attachment-media img").waitFor();
   const secondContext = await browser.newContext({
     ignoreHTTPSErrors: process.env.ZFY_REMOTE_ALLOW_SELF_SIGNED === "1",
   });
@@ -86,7 +97,10 @@ try {
     await secondPage.locator('input[type="password"]').fill(password);
     await secondPage.getByRole("button", { name: "登录" }).click();
     await secondPage.getByText("原文 / SOURCE").waitFor();
-    await secondPage.getByRole("button", { name: new RegExp(temporaryTitle) }).waitFor();
+    const remoteNote = secondPage.getByRole("button", { name: new RegExp(temporaryTitle) });
+    await remoteNote.waitFor();
+    await remoteNote.click();
+    await secondPage.locator(".attachment-media img").waitFor();
   } finally {
     await secondContext.close();
   }
