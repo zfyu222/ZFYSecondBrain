@@ -115,6 +115,17 @@ try {
     await page.getByLabel("关系 1 类型").selectOption({ label: "支持" });
     await page.getByRole("button", { name: "保存", exact: true }).click();
     await page.getByText(/→ 支持 →/).waitFor();
+    await page.getByRole("button", { name: "移入回收站", exact: true }).click();
+    await page.getByText("验证工具与原始文件", { exact: true }).click();
+    await page.getByRole("button", { name: "永久删除", exact: true }).waitFor();
+    let permanentlyDeleted = false;
+    page.once("dialog", async (dialog) => {
+      permanentlyDeleted = dialog.message().includes("不可恢复");
+      await dialog.accept();
+    });
+    await page.getByRole("button", { name: "永久删除", exact: true }).click();
+    await page.getByRole("button", { name: "永久删除", exact: true }).waitFor({ state: "detached" });
+    assert.equal(permanentlyDeleted, true, "永久删除没有要求不可恢复确认");
     let warned = false;
     page.once("dialog", async (dialog) => {
       warned = dialog.message().includes("尚未同步");
