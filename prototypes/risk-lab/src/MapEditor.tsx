@@ -57,6 +57,7 @@ export default function MapEditor({
   }, [opml, relationsText]);
   const [selected, setSelected] = useState("");
   const [linkType, setLinkType] = useState("相关");
+  const [customLinkType, setCustomLinkType] = useState("");
   const [linkTarget, setLinkTarget] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [mapError, setMapError] = useState("");
@@ -64,6 +65,8 @@ export default function MapEditor({
   const canvas = useRef<HTMLDivElement>(null);
   const rows = parsed.map ? flatten(parsed.map) : [];
   const current = rows.find((r) => r.path === selected) ?? rows[0];
+  const effectiveLinkType =
+    linkType === "自定义…" ? customLinkType.trim() : linkType;
   const visible = rows.filter(
     (row) => ![...collapsed].some((p) => row.path.startsWith(p + "/")),
   );
@@ -437,7 +440,17 @@ export default function MapEditor({
             {relationTypes.map((t) => (
               <option key={t}>{t}</option>
             ))}
+            <option>自定义…</option>
           </select>
+          {linkType === "自定义…" && (
+            <input
+              aria-label="自定义关系类型"
+              value={customLinkType}
+              maxLength={80}
+              onChange={(e) => setCustomLinkType(e.target.value)}
+              placeholder="例如：制约"
+            />
+          )}
           <select
             aria-label="关系目标"
             value={linkTarget}
@@ -453,15 +466,15 @@ export default function MapEditor({
               ))}
           </select>
           <button
-            disabled={!linkTarget || linkTarget === current.path}
+            disabled={!effectiveLinkType || !linkTarget || linkTarget === current.path}
             onClick={() =>
               save(parsed.map!, [
                 ...parsed.relations,
                 {
                   from: current.path,
                   to: linkTarget,
-                  type: linkType,
-                  status: linkType === "未明确" ? "unresolved" : "confirmed",
+                  type: effectiveLinkType,
+                  status: effectiveLinkType === "未明确" ? "unresolved" : "confirmed",
                 },
               ])
             }

@@ -612,6 +612,10 @@ h1 {
   flex: 1;
   min-width: 60px;
 }
+.relation-controls input {
+  flex: 1;
+  min-width: 90px;
+}
 .relation-row {
   display: flex;
   align-items: center;

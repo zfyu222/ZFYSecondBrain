@@ -92,6 +92,13 @@ try {
       return event.defaultPrevented;
     });
     assert.equal(unloadGuard, true, "未同步草稿没有阻止 beforeunload");
+    await page.getByRole("button", { name: "＋ 导图", exact: true }).click();
+    await page.getByRole("button", { name: "＋ 子节点", exact: true }).click();
+    await page.getByLabel("语义关系类型").selectOption({ label: "自定义…" });
+    await page.getByLabel("自定义关系类型").fill("制约");
+    await page.getByLabel("关系目标").selectOption({ index: 1 });
+    await page.getByRole("button", { name: "添加关系", exact: true }).click();
+    await page.getByText(/→ 制约 →/).waitFor();
     let warned = false;
     page.once("dialog", async (dialog) => {
       warned = dialog.message().includes("尚未同步");
