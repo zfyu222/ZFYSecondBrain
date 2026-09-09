@@ -72,11 +72,14 @@ try {
     await page.waitForTimeout(100);
     const markdownAfterTask = await page.locator(".cm-content").first().textContent();
     assert.match(markdownAfterTask ?? "", /-\s*\[\s*\]/, "待办快捷操作没有写入 Markdown");
-    const undo = page.getByRole("button", { name: "撤销", exact: true });
+    const undo = page.locator(".markdown-editor-actions").getByRole("button", { name: "撤销", exact: true });
     assert.equal(await undo.isEnabled(), true, "Markdown 修改后撤销按钮没有启用");
     await undo.click();
-    await page.waitForFunction(
-      () => !document.querySelector(".cm-content")?.textContent?.match(/-\s*\[\s*\]/),
+    await page.waitForTimeout(100);
+    assert.doesNotMatch(
+      (await page.locator(".cm-content").first().textContent()) ?? "",
+      /-\s*\[\s*\]/,
+      "Markdown 撤销没有撤回待办快捷操作",
     );
     await undo.click();
     await page.waitForFunction(

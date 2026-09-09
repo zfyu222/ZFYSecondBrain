@@ -196,7 +196,7 @@ export default function MapEditor({
     presentation = { selected: current.path, collapsed: [...collapsed] },
     group?: string,
     relationOrigins?: number[],
-  ) {
+  ): boolean {
     try {
       const nextOpml = serializeOpml(map);
       const nextRelations =
@@ -231,8 +231,10 @@ export default function MapEditor({
         [`${stem}.opml`]: nextOpml,
         [`${stem}.relations.yaml`]: nextRelations,
       });
+      return true;
     } catch (error) {
       setMapError("操作未保存，原文保留：" + String(error));
+      return false;
     }
   }
   function change(
@@ -589,7 +591,7 @@ export default function MapEditor({
                     const type = editingRelation.type === customRelationOption
                       ? editingRelation.customType.trim()
                       : editingRelation.type;
-                    save(
+                    const saved = save(
                       parsed.map!,
                       parsed.relations.map((relation, itemIndex) =>
                         itemIndex === index
@@ -597,8 +599,10 @@ export default function MapEditor({
                           : relation,
                       ),
                     );
-                    rememberRelation(type);
-                    setEditingRelation(null);
+                    if (saved) {
+                      rememberRelation(type);
+                      setEditingRelation(null);
+                    }
                   }}
                 >保存</button>
                 <button onClick={() => setEditingRelation(null)}>取消</button>
