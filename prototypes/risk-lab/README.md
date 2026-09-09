@@ -26,6 +26,8 @@ pnpm preview:prototype
 
 `pnpm browser:auth-smoke` 会在独立目录与端口启用单账号认证，实测错误密码被拒绝、正确密码进入编辑界面，且登录 Cookie 能读取受保护快照。它使用固定测试密码，不读取本机 `.env` 或默认数据目录。
 
+本机已在未跟踪 `.env` 配置 `DEEPSEEK_API_KEY` 时，可执行 `pnpm --filter @zfy/risk-lab browser:local-ai-smoke`。它只启动临时数据目录，登录后针对内置测试资料发起一次真实问答，并要求页面展示已通过服务端逐字验证的引用；不创建、同步或修改笔记。此验收会产生一次模型调用，因此不纳入默认浏览器门禁。
+
 `pnpm browser:offline-smoke` 会自行建立临时隔离服务和无痕浏览器：先缓存当前构建并等待 Service Worker 接管，再停止临时服务，从根入口验证离线重开。临时数据目录保留在忽略的 `.prototype-data` 下，不会触碰默认服务或发送模型请求。
 
 本机验收如需隔离服务，可在启动前设置绝对路径 `ZFY_DATA_DIR` 和 `1024–65535` 的 `ZFY_PORT`；默认仍使用本目录 `.prototype-data/server` 与 `4173`。相对路径、文件系统根目录和无效端口会在启动前拒绝，避免误把测试写入错误位置。
