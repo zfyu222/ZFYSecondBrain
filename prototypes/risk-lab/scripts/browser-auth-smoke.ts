@@ -108,6 +108,10 @@ try {
       true,
       "新建的关系没有进入本机最近使用列表",
     );
+    await page.getByRole("button", { name: "编辑关系 1" }).click();
+    await page.getByLabel("关系 1 类型").selectOption({ label: "支持" });
+    await page.getByRole("button", { name: "保存", exact: true }).click();
+    await page.getByText(/→ 支持 →/).waitFor();
     let warned = false;
     page.once("dialog", async (dialog) => {
       warned = dialog.message().includes("尚未同步");

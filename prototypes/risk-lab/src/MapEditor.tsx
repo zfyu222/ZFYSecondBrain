@@ -51,6 +51,26 @@ function loadRecentRelations() {
   }
 }
 
+function RelationTypeOptions({ recentRelations }: { recentRelations: string[] }) {
+  return <>
+    {recentRelations.length > 0 && (
+      <optgroup label="最近使用">
+        {recentRelations.map((type) => (
+          <option key={`recent:${type}`} value={type}>{type}</option>
+        ))}
+      </optgroup>
+    )}
+    {relationGroups.map((group) => (
+      <optgroup key={group.label} label={group.label}>
+        {group.values.map((type) => (
+          <option key={type} value={type}>{type}</option>
+        ))}
+      </optgroup>
+    ))}
+    <option value={customRelationOption}>自定义…</option>
+  </>;
+}
+
 export default function MapEditor({
   opml,
   relationsText,
@@ -81,6 +101,13 @@ export default function MapEditor({
   const [customLinkType, setCustomLinkType] = useState("");
   const [linkTarget, setLinkTarget] = useState("");
   const [recentRelations, setRecentRelations] = useState(loadRecentRelations);
+  const [editingRelation, setEditingRelation] = useState<{
+    index: number;
+    from: string;
+    to: string;
+    type: string;
+    customType: string;
+  } | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [mapError, setMapError] = useState("");
   const history = useRef(new MapHistory());
@@ -470,21 +497,7 @@ export default function MapEditor({
             value={linkType}
             onChange={(e) => setLinkType(e.target.value)}
           >
-            {recentRelations.length > 0 && (
-              <optgroup label="最近使用">
-                {recentRelations.map((type) => (
-                  <option key={`recent:${type}`} value={type}>{type}</option>
-                ))}
-              </optgroup>
-            )}
-            {relationGroups.map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.values.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </optgroup>
-            ))}
-            <option value={customRelationOption}>自定义…</option>
+            <RelationTypeOptions recentRelations={recentRelations} />
           </select>
           {linkType === customRelationOption && (
             <input
@@ -529,20 +542,97 @@ export default function MapEditor({
         </div>
         {parsed.relations.map((r, index) => (
           <div className="relation-row" key={index}>
-            <span>
-              {r.from.split("/").pop()} → {r.type} → {r.to.split("/").pop()}
-            </span>
-            <button
-              aria-label={`删除关系 ${index + 1}`}
-              onClick={() =>
-                save(
-                  parsed.map!,
-                  parsed.relations.filter((_r, i) => i !== index),
-                )
-              }
-            >
-              移除
-            </button>
+            {editingRelation?.index === index ? (
+              <div className="relation-edit-controls">
+                <select
+                  aria-label={`关系 ${index + 1} 来源`}
+                  value={editingRelation.from}
+                  onChange={(event) => setEditingRelation({ ...editingRelation, from: event.target.value })}
+                >
+                  {rows.filter((row) => row.path !== editingRelation.to).map((row) => (
+                    <option key={row.path} value={row.path}>{row.node.text} · {row.path}</option>
+                  ))}
+                </select>
+                <select
+                  aria-label={`关系 ${index + 1} 类型`}
+                  value={editingRelation.type}
+                  onChange={(event) => setEditingRelation({ ...editingRelation, type: event.target.value })}
+                >
+                  <RelationTypeOptions recentRelations={recentRelations} />
+                </select>
+                {editingRelation.type === customRelationOption && (
+                  <input
+                    aria-label={`关系 ${index + 1} 自定义类型`}
+                    value={editingRelation.customType}
+                    maxLength={80}
+                    onChange={(event) => setEditingRelation({ ...editingRelation, customType: event.target.value })}
+                    placeholder="例如：制约"
+                  />
+                )}
+                <select
+                  aria-label={`关系 ${index + 1} 目标`}
+                  value={editingRelation.to}
+                  onChange={(event) => setEditingRelation({ ...editingRelation, to: event.target.value })}
+                >
+                  {rows.filter((row) => row.path !== editingRelation.from).map((row) => (
+                    <option key={row.path} value={row.path}>{row.node.text} · {row.path}</option>
+                  ))}
+                </select>
+                <button
+                  disabled={
+                    editingRelation.from === editingRelation.to ||
+                    !(editingRelation.type === customRelationOption
+                      ? editingRelation.customType.trim()
+                      : editingRelation.type)
+                  }
+                  onClick={() => {
+                    const type = editingRelation.type === customRelationOption
+                      ? editingRelation.customType.trim()
+                      : editingRelation.type;
+                    save(
+                      parsed.map!,
+                      parsed.relations.map((relation, itemIndex) =>
+                        itemIndex === index
+                          ? { ...relation, from: editingRelation.from, to: editingRelation.to, type, status: type === "未明确" ? "unresolved" : "confirmed" }
+                          : relation,
+                      ),
+                    );
+                    rememberRelation(type);
+                    setEditingRelation(null);
+                  }}
+                >保存</button>
+                <button onClick={() => setEditingRelation(null)}>取消</button>
+              </div>
+            ) : <>
+              <span>
+                {r.from.split("/").pop()} → {r.type} → {r.to.split("/").pop()}
+              </span>
+              <div className="relation-row-actions">
+                <button
+                  aria-label={`编辑关系 ${index + 1}`}
+                  onClick={() =>
+                    setEditingRelation({
+                      index,
+                      from: r.from,
+                      to: r.to,
+                      type: relationTypes.includes(r.type) ? r.type : customRelationOption,
+                      customType: relationTypes.includes(r.type) ? "" : r.type,
+                    })
+                  }
+                >编辑</button>
+                <button
+                  aria-label={`删除关系 ${index + 1}`}
+                  onClick={() =>
+                    save(
+                      parsed.map!,
+                      parsed.relations.filter((_r, i) => i !== index),
+                    )
+                  }
+                >
+                  移除
+                </button>
+              </div>
+            </>}
           </div>
         ))}
       </div>

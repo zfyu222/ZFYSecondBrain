@@ -624,6 +624,21 @@ h1 {
   gap: 15px;
   color: #8c784b;
 }
+.relation-row-actions,
+.relation-edit-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.relation-edit-controls {
+  width: 100%;
+}
+.relation-edit-controls select,
+.relation-edit-controls input {
+  min-width: 110px;
+  flex: 1;
+}
 .relation-row span {
   overflow-wrap: anywhere;
 }
