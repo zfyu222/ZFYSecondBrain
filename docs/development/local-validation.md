@@ -27,6 +27,14 @@ pnpm verify:release
 
 它会在本地门禁完成后继续执行关键浏览器 smoke；密钥扫描仍需单独运行 gitleaks。
 
+如需将本地门禁与远程临时数据验收串为一次可复现检查，运行：
+
+```text
+ZFY_REMOTE_ORIGIN=https://… ZFY_REMOTE_PASSWORD=… ZFY_REMOTE_ALLOW_SELF_SIGNED=1 pnpm verify:first-release
+```
+
+默认包含远程登录、双浏览器同步、附件预览与移动回归。设置 `ZFY_REMOTE_INCLUDE_AI=1` 才会追加一次会产生模型请求的只读问答回归。
+
 提交前运行仓库级密钥扫描：
 
 ```text

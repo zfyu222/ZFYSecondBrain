@@ -9,6 +9,7 @@
     "verify:local": "tsx scripts/verify-local.ts",
     "verify:browser": "tsx scripts/verify-browser.ts",
     "verify:release": "tsx scripts/verify-release.ts",
+    "verify:first-release": "tsx scripts/verify-first-release.ts",
     "test": "pnpm --filter @zfy/risk-lab test",
     "typecheck": "pnpm --filter @zfy/risk-lab typecheck",
     "preview:prototype": "pnpm --filter @zfy/risk-lab start",
